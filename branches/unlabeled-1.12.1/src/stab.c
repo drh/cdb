@@ -541,11 +541,12 @@ where i is the index in coordinates for the execution point of the
 expression in which the call appears.
 */
 static void call_hook(void *cl, Coordinate *cp, Tree *e) {
-	*e = right(
-		asgntree(ASGN,
-			field(lvalue(idtree(tos)), string("ip")),
-			cnsttree(inttype, Seq_length(coordList)/2L)),
-		*e);
+	assert(*e);
+	*e = tree(RIGHT, (*e)->type,
+		  asgntree(ASGN,
+			   field(lvalue(idtree(tos)), string("ip")),
+			   cnsttree(inttype, Seq_length(coordList)/2L)),
+		  *e);
 }
 
 /* stabinit - initialize for symbol table emission */
