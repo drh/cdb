@@ -1,5 +1,6 @@
 # $Id$
-CC=lcc
+# CC MUST be the same compiler that compiled lcc 4.1
+CC=cc
 CFLAGS	= -g
 # Configuration:
 # SRCDIR	root of the lcc 4.1 distribution
