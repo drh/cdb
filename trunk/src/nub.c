@@ -43,7 +43,7 @@ static void set_state(struct sframe *fp, Nub_state_T *state) {
 	strncpy(state->name, fp->func, sizeof state->name);
 	setcoord(fp->module->coordinates[fp->ip], fp->module, &state->src);
 	state->fp = (void *)fp;
-	state->context = fp->tail;
+	state->context = fp->module->tails[fp->ip];
 }
 
 static void movedown(void) {
@@ -125,13 +125,12 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 	startup(state);
 }
 
-void _Nub_bp(int index, struct ssymbol *tail) {
+void _Nub_bp(int index) {
 	Nub_state_T state;
 
 	if (!breakhandler)
 		return;
 	_Nub_tos->ip = index;
-	_Nub_tos->tail = tail;
 	fp = _Nub_tos;
 	fp->up = NULL;
 	set_state(fp, &state);

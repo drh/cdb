@@ -22,7 +22,7 @@ extern struct module *_Nub_modules[];
 extern struct sframe *_Nub_tos;
 
 extern void _Nub_init(Nub_callback_T startup, Nub_callback_T fault);
-extern void _Nub_bp(int index, struct ssymbol *tail);
+extern void _Nub_bp(int index);
 extern void _Nub_src(Nub_coord_T src,
 	void apply(int i, const Nub_coord_T *src, void *cl), void *cl);
 extern Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak);
