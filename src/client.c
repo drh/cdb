@@ -27,7 +27,7 @@ static char *stringf(const char *fmt, ...) {
 	return buf;
 }
 
-void _Nub_state(Nub_state_T *state) {}
+void _Nub_state(Nub_state_T *state, struct sframe *f) {}
 
 static void swtch(void);
 

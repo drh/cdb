@@ -54,7 +54,6 @@ static void update(void) {
 
 void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 	Nub_state_T state;
-	struct module *m;
 	static Nub_state_T z;
 
 	faulthandler = fault;
@@ -129,7 +128,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 			movedown();
 	}
 	state->fp = (char *)fp;
-	_Nub_state(state);
+	_Nub_state(state, NULL);
 	return frameno;
 }
 
