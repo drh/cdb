@@ -14,7 +14,7 @@ static int frameno;
 static struct sframe *fp;
 static struct { char *start, *end; } text, data, stack;
 
-static int unpack(union scoordinate w, int *i, short int *x, short int *y) {
+static int unpack(union scoordinate w, int *i, unsigned short *x, unsigned short *y) {
 	int f;
 	static union { int i; char endian; } little = { 1 };
 
@@ -63,7 +63,7 @@ static void moveup(void) {
 
 static int equal(Nub_coord_T *src, union scoordinate w, char *files[]) {
 	int i;
-	short x, y;
+	unsigned short x, y;
 
 	unpack(w, &i, &x, &y);
 	/*
@@ -94,7 +94,7 @@ static void update(void) {
 #ifdef unix
 	{
 		extern char etext;
-		extern void *sbrk;
+		extern void *sbrk(size_t);
 		text.start = 0;
 		text.end = &etext;
 		data.start = &etext;
@@ -169,12 +169,8 @@ Nub_callback_T _Nub_remove(Nub_coord_T src) {
 }
 
 static int valid(const char *address, int nbytes) {
-#define xx(z) do { \
-	if (address >= z.start && address < z.end) { \
-		if (nbytes < z.end - address) \
-			return z.end - address; \
-		else \
-			return nbytes; } } while (0)
+#define xx(z) if (address >= z.start && address < z.end) \
+		      return (unsigned)nbytes > z.end - address ? z.end - address : nbytes
 	xx(stack);
 	xx(data);
 	xx(text);
@@ -186,6 +182,7 @@ int _Nub_fetch(int space, const void *address, void *buf, int nbytes) {
 	if (nbytes <= 0)
 		return 0;
 	nbytes = valid(address, nbytes);
+	assert(nbytes >= 0);
 	if (nbytes > 0 && buf)
 		memcpy(buf, address, nbytes);
 	return nbytes;
