@@ -181,6 +181,7 @@ static int server(short port) {
 
 int main(int argc, char *argv[]) {
 	short port = 9001;
+	int i;
 	char *s;
 
 	if ((s = getenv("TRACE")) != NULL)
@@ -197,7 +198,10 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 	atexit(cleanup);
-	if (argc > 1)
-		port = atoi(argv[1]);
+	for (i = 1; i < argc; i++)
+		if (isdigit(*argv[i]))
+			port = atoi(argv[i]);
+		else if (strncmp(argv[i], "-trace=", 7) == 0)
+			trace = atoi(argv[i] + 7);
 	return server(port);
 }
