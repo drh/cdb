@@ -111,9 +111,11 @@ custom.mk. I use different names for different platforms, e.g.,
 Depending on the values of file timestamps, you might have to touch
 etc/solaris.c or src/inits.c to force rebuilding of lcc or rcc.
 
-5. Copy the startup code to the build directory:
+5. Copy the startup code to the build directory, and chmod the
+prelinker script:
 
 	1% cp startup/solaris.o ${BUILDDIR}/startup.o
+	1% chmod +x ${BUILDDIR}/prelink.sh
 
 Notice that the name of the installed startup code is startup.o.
 
