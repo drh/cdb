@@ -1,11 +1,19 @@
 # $Id$
+CC=lcc
 CFLAGS	= -g
-INCLUDES= -I/usr/local/lib/cii/1/include -I/u/drh/pkg/lcc/4.0/src
-LDFLAGS	= -g -L/u/drh/pkg/lcc/4.0/sparc-solaris
+# Configuration:
+# SRCDIR	root of the lcc 4.0 distribution
+# INCLUDES	-I options for CII headers and lcc 4.0 headers
+# HOSTFILE	path to an lcc driver back end that supports cdb
+# BUILDDIR	the lcc 4.0 build directory
+# LDFLAGS	-L options for librcc.a (in the lcc build directory)
+# LIBS		libraries, including socket and network libraries
+SRCDIR	= /u/drh/pkg/lcc/4.0
+INCLUDES= -I/usr/local/lib/cii/1/include -I$(SRCDIR)/src
 HOSTFILE=etc/solaris.c
-BUILDDIR=sparc/solaris
+BUILDDIR= $(SRCDIR)/sparc-solaris
+LDFLAGS	= -g -L$(BUILDDIR)
 LIBS	= -lcii -lsocket -lnsl
-LIBCII	= -lcii
 E=
 O=.o
 A=.a
@@ -22,7 +30,7 @@ rcc:		$Brcc$E
 libnub:		$Blibnub$A $Bclientstub$O
 cdb:		$Bcdb$E
 
-$Blcc$E:	$Blcc$O $Bhost$O;	$(LD) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
+$Blcc$E:	$Blcc$O $Bhost$O;	$(CC) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
 
 $Blcc$O:	$(SRCDIR)/etc/lcc.c;	$(CC) -v -c $(CFLAGS) -o $@ $(SRCDIR)/etc/lcc.c
 $Bhost$O:	$(HOSTFILE);		$(CC) -c $(CFLAGS) -o $@ $(HOSTFILE)
@@ -33,7 +41,7 @@ $Blibnub$A:	$Bclient$O $Bnub$O $Bsymstub$O $Bcomm$O
 $Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@; chmod +x $@
 
 $Brcc$E:	$Bstab$O $Binits$O
-		$(LD) $(LDFLAGS) -o $@ $Bstab$O $Binits$O -lrcc -lcii
+		$(CC) $(LDFLAGS) -o $@ $Bstab$O $Binits$O -lrcc -lcii
 
 $Binits$O:	src/inits.c;	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/inits.c
 
@@ -73,7 +81,8 @@ $Bstab$O:	src/stab.c src/glue.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/stab.c
 
 stubtest:	wf.c lookup.c $Bcdb$O
-		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bcdb$O $(LIBCII)
+		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bcdb$O \
+			`if [ -d c:/ ]; then echo libcii.lib; else echo -lcii; fi`
 
 test:		wf.c lookup.c $Blibnub$A $Bcdb$E
 		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c
