@@ -18,7 +18,7 @@ href="http://www.research.microsoft.com/~drh/pubs/msr-tr-99-4.pdf">http://www.re
 
 <p>The initial version of cdb is described in D. R. Hanson and M. Raghavachari, &quot;A
 Machine-Independent Debugger&quot;, Software&#151;Practice and Experience <strong>26</strong>
-(11), 1277-1299, Nov. 1996, which is available at <a
+(11), 1277-1299, 11/96, which is available at <a
 href="http://www.research.microsoft.com/~drh/pubs/cdb.pdf">http://www.research.microsoft.com/~drh/pubs/cdb.pdf</a>.</p>
 
 <p>For more information about cdb, visit <a
@@ -61,7 +61,7 @@ href="http://www.cs.princeton.edu/software/cii/">http://www.cs.princeton.edu/sof
 <p>In the two-process version, cdb is the server and the target (the program being
 debugged) is the client. <a href="src/server.c"><code>src/server.c</code></a> is the
 server side of the RPC channel and <a href="src/client.c"><code>src/client.c</code></a> is
-the client side. (These roles are reversed in Table 1 and Figure 6 in the original cdb
+the client side. (These roles are reversed in Table 1 and Figure 6 in the initial cdb
 paper.) cdb can run on a different machine than the target, but the machines must have the
 same type metrics and endianness.</p>
 
@@ -86,7 +86,7 @@ and rebuilding rcc (lcc's compiler proper) and lcc (lcc's compilation driver).</
 
 <p>The following steps describe the installation under Solaris and Linux. Similar steps
 apply to Windows NT 4.0. Under NT, you'll need a UNIX-style shell and Visual C++ 5.0 or
-6.0; I use the MKS Toolkit. 
+6.0; I use the <a href="http://www.mks.com/solution/tk/">MKS Toolkit</a>. 
 
 <ol>
   <li>Install lcc 4.1 (<a href="http://www.cs.princeton.edu/software/lcc/">http://www.cs.princeton.edu/software/lcc/</a>),
@@ -96,11 +96,11 @@ apply to Windows NT 4.0. Under NT, you'll need a UNIX-style shell and Visual C++
     makefile to suit your local configuration. Make sure <code>BUILDDIR</code> points to the
     lcc 4.1 build directory (or a copy of it) and <code>ASDL_HOME</code> points to the root of
     the asdlGen installation.</li>
-  <li>Edit <code>etc/solaris.c</code> or <code>etc/linux.c</code> (or a copy) to suit your
-    local configuration, and set <code>HOSTNAME</code> to the name of the appropriate file in <code>custom.mk</code>.
-    These files are variants of the driver back ends included in the lcc 4.1 distribution.
-    They support the -Wo-g4 option, which causes lcc to emit cdb-style symbol tables as ASDL
-    pickles.</li>
+  <li>Edit <a href="etc/solaris.c"><code>etc/solaris.c</code></a> or <a href="etc/linux.c"><code>etc/linux.c</code></a>
+    (or a copy) to suit your local configuration, and set <code>HOSTNAME</code> to the name of
+    the appropriate file in <code>custom.mk</code>. These files are variants of the driver
+    back ends included in the lcc 4.1 distribution. They support the -Wo-g4 option, which
+    causes lcc to emit cdb-style symbol tables as ASDL pickles.</li>
   <li>Linux doesn't have <code>-lsocket</code> (the socket library), so, if you're running on
     Linux, redefine <code>LIBS</code> in <code>custom.mk</code>; e.g., I use <blockquote>
       <pre>LIBS=-lasdl -lcii -lnsl</pre>
@@ -114,8 +114,9 @@ apply to Windows NT 4.0. Under NT, you'll need a UNIX-style shell and Visual C++
     <blockquote>
       <pre>1% make CUSTOM=linux.mk</pre>
     </blockquote>
-    <p>Depending on the values of file timestamps, you might have to touch <code>etc/solaris.c</code>,
-    <code>etc/linux</code>, or <code>src/inits.c</code>, or remove the corresponding object
+    <p>Depending on the values of file timestamps, you might have to touch <a
+    href="etc/solaris.c"><code>etc/solaris.c</code></a>, <a href="etc/linux.c"><code>etc/linux.c</code></a>,
+    or <a href="src/inits.c"><code>src/inits.c</code></a>, or remove the corresponding object
     files, to force rebuilding of lcc or rcc. <strong>IMPORTANT</strong>: Use the same C
     compiler you used to build lcc.</p>
   </li>
@@ -130,6 +131,8 @@ apply to Windows NT 4.0. Under NT, you'll need a UNIX-style shell and Visual C++
     <p>Then run a.out:</p>
     <blockquote>
       <pre>1% a.out
+fetching module [1571580302] inhaling lookup.c[1571580302]
+fetching module [1571580299] inhaling wf.c[1571580299]
 cdb&gt;</pre>
     </blockquote>
     <p>The documentation in &quot;A Machine-Independent Debugger&quot; applies; the
@@ -151,7 +154,9 @@ client: connected on 127.0.0.1:47632 to 127.0.0.1:9001</pre>
     </blockquote>
     <p>In the cdb window, you should see something like:</p>
     <blockquote>
-      <pre>/u/drh/pkg/4.1/sparc-solaris/cdb: now serving 127.0.0.1:47632
+      <pre>/u/drh/pkg/4.1/sparc-solaris/cdb: now serving 127.0.0.1:1428
+fetching module [1571576238] inhaling wf.c[1571576238]
+fetching module [1571576369] inhaling lookup.c[1571576369]
 cdb&gt;</pre>
     </blockquote>
     <p>When you exit the client, cdb waits for another connection.</p>
@@ -165,8 +170,8 @@ cdb&gt;</pre>
 
 <h2>Bugs and Suggestions</h2>
 
-<p>Send email to drh@microsoft.com. I can't promise timely responses or patches, but I
-intend to keep cdb in sync with lcc. </p>
+<p>Send email to <a href="mailto:drh@microsoft.com">drh@microsoft.com</a>. I can't promise
+timely responses or patches, but I intend to keep cdb in sync with lcc. </p>
 
 <hr>
 
