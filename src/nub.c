@@ -11,7 +11,6 @@ struct sframe *_Nub_tos;
 static Nub_callback_T faulthandler;
 static Nub_callback_T breakhandler;
 static int frameno;
-static struct ssymbol *root;
 static struct sframe *fp;
 static struct { char *start, *end; } text, data, stack;
 
@@ -116,25 +115,12 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 	Nub_state_T state;
 	struct module *m;
 	static Nub_state_T z;
-	int i;
 
 	faulthandler = fault;
-	for (i = 0; (m = _Nub_modules[i]) != NULL; i++) {
-		struct ssymbol *sp = m->link;
-		assert(sp);
-		while (sp->uplink)
-			sp = sp->uplink;
-		if (sp != m->link) {
-			sp->uplink = root;
-			root = m->link->uplink;
-		}
-	}
-	for (i = 0; _Nub_modules[i]; i++)
-		_Nub_modules[i]->link->uplink = root;
 	fp = NULL;
 	frameno = 0;
 	state = z;
-	state.context = root;
+	state.context = _Nub_modules;
 	update();
 	startup(state);
 }
@@ -197,20 +183,20 @@ static int valid(const char *address, int nbytes) {
 	return 0;
 }
 
-int _Nub_fetch(int space, void *address, void *buf, int nbytes) {
+int _Nub_fetch(int space, const void *address, void *buf, int nbytes) {
 	if (nbytes <= 0)
 		return 0;
 	nbytes = valid(address, nbytes);
-	if (nbytes > 0)
+	if (nbytes > 0 && buf)
 		memcpy(buf, address, nbytes);
 	return nbytes;
 }
 
-int _Nub_store(int space, void *address, void *buf, int nbytes) {
+int _Nub_store(int space, void *address, const void *buf, int nbytes) {
 	if (nbytes <= 0)
 		return 0;
 	nbytes = valid(address, nbytes);
-	if (nbytes > 0)
+	if (nbytes > 0 && buf)
 		memcpy(address, buf, nbytes);
 	return nbytes;
 }
@@ -232,7 +218,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 }
 
 void _Nub_src(Nub_coord_T src,
-	void apply(int i, Nub_coord_T *src, void *cl), void *cl) {
+	void apply(int i, const Nub_coord_T *src, void *cl), void *cl) {
 	int i, n = 0;
 
 	assert(apply);

@@ -66,19 +66,21 @@ Nub_callback_T _Nub_remove(Nub_coord_T src) {
 	return breakhandler;
 }
 
-int _Nub_fetch(int space, void *address, void *buf, int nbytes) {
+int _Nub_fetch(int space, const void *address, void *buf, int nbytes) {
 	struct nub_fetch args;
 
 	args.space = space;
 	args.address = address;
 	args.nbytes = nbytes;
+	tracemsg("%s: _Nub_fetch(space=%d,address=%p,buf=%p,nbytes=%d)\n",
+		 identity, space, address, buf, nbytes);
 	sendout(NUB_FETCH, &args, sizeof args);
 	recvmsg(in, &args.nbytes, sizeof args.nbytes);
 	recvmsg(in, buf, args.nbytes);
 	return args.nbytes;
 }
 
-int _Nub_store(int space, void *address, void *buf, int nbytes) {
+int _Nub_store(int space, void *address, const void *buf, int nbytes) {
 	struct nub_store args;
 
 	args.space = space;
@@ -86,6 +88,8 @@ int _Nub_store(int space, void *address, void *buf, int nbytes) {
 	args.nbytes = nbytes;
 	assert(nbytes <= sizeof args.buf);
 	memcpy(args.buf, buf, nbytes);
+	tracemsg("%s: _Nub_store(space=%d,address=%p,buf=%p,nbytes=%d)\n",
+		 identity, space, address, buf, nbytes);
 	sendout(NUB_STORE, &args, sizeof args);
 	recvmsg(in, &args.nbytes, sizeof args.nbytes);
 	return args.nbytes;
@@ -103,7 +107,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 }
 
 void _Nub_src(Nub_coord_T src,
-	void apply(int i, Nub_coord_T *src, void *cl), void *cl) {
+	void apply(int i, const Nub_coord_T *src, void *cl), void *cl) {
 	int i = 0, n;
 	static Seq_T srcs;
 

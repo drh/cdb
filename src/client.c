@@ -27,7 +27,7 @@ static char *stringf(const char *fmt, ...) {
 	return buf;
 }
 
-static void sendeach(int i, Nub_coord_T *src, void *cl) {
+static void sendeach(int i, const Nub_coord_T *src, void *cl) {
 	sendmsg(out, src, *(int *)cl);
 }
 
@@ -65,19 +65,20 @@ static void swtch(void) {
 		}
 		case NUB_FETCH: {
 			int nbytes;
-			char buf[1024];
 			struct nub_fetch args;
 			recvmsg(in, &args, sizeof args);
-			if (args.nbytes > sizeof buf)
-				args.nbytes = sizeof buf;
-			nbytes = _Nub_fetch(args.space, args.address, buf, args.nbytes);
+			tracemsg("%s: _Nub_fetch(space=%d,address=%p,buf=NULL,nbytes=%d)\n",
+				 identity, args.space, args.address, args.nbytes);
+			nbytes = _Nub_fetch(args.space, args.address, NULL, args.nbytes);
 			sendmsg(out, &nbytes, sizeof nbytes);
-			sendmsg(out, buf, nbytes);
+			sendmsg(out, args.address, nbytes);
 			break;
 		}
 		case NUB_STORE: {
 			struct nub_store args;
 			recvmsg(in, &args, sizeof args);
+			tracemsg("%s: _Nub_store(space=%d,address=%p,buf=%p,nbytes=%d)\n",
+				 identity, args.space, args.address, args.buf, args.nbytes);
 			args.nbytes = _Nub_store(args.space, args.address, args.buf, args.nbytes);
 			sendmsg(out, &args.nbytes, sizeof args.nbytes);
 			break;

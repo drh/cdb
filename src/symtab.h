@@ -4,10 +4,12 @@
 
 /* $Id$ */
 
-extern void _Sym_init(void);
-extern struct ssymbol *_Sym_symbol(void *sym);
+extern void _Sym_init(struct module *mods[]);
+extern const struct module *_Sym_module(void *module);
+extern const struct ssymbol *_Sym_symbol(void *module, int index);
 extern const struct stype *_Sym_type(void *module, int index);
 extern const char *_Sym_string(void *module, int index);
-extern struct ssymbol *_Sym_find(const char *name, void *context);
+extern struct _Sym_iterator *_Sym_iterator(void *context);
+extern const struct ssymbol *_Sym_next(struct _Sym_iterator *it);
 
 #endif

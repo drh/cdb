@@ -25,7 +25,7 @@ typedef enum {		/* messages */
 
 struct nub_fetch {
 	int space;
-	void *address;
+	const void *address;
 	int nbytes;
 };
 

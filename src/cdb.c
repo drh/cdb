@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include <signal.h>
 #include <ctype.h>
+#undef NEW
+#undef NEW0
+#include "mem.h"
+#include "seq.h"
 #include "server.h"
 #include "symtab.h"
 
@@ -306,7 +310,7 @@ static void prompt(void) {
 	fflush(out);
 }
 
-static void printsym(struct ssymbol *sym, Nub_state_T *frame) {
+static void printsym(const struct ssymbol *sym, Nub_state_T *frame) {
 	const char *name;
 
 	assert(sym);
@@ -339,9 +343,9 @@ static void printsym(struct ssymbol *sym, Nub_state_T *frame) {
 	}
 }
 
-static void printparam(struct ssymbol *sym, Nub_state_T *frame) {
+static void printparam(const struct ssymbol *sym, Nub_state_T *frame) {
 	if (sym->uplink) {
-		struct ssymbol *next = _Sym_symbol(sym->uplink);
+		const struct ssymbol *next = _Sym_symbol(sym->module, sym->uplink);
 		if (next->scope == PARAM) {
 			printparam(next, frame);
 			put(",");
@@ -351,13 +355,11 @@ static void printparam(struct ssymbol *sym, Nub_state_T *frame) {
 }
 	
 static void printframe(int verbose, Nub_state_T *frame, int frameno) {
-	struct ssymbol *sym;
-	void *context;
-
 	put("%d\t%s(", frameno, frame->name);
-	if (verbose > 0)	/* print parameters */
-		for (context = frame->context; context; context = sym->uplink) {
-			sym = _Sym_symbol(context);
+	if (verbose > 0) {	/* print parameters */
+		const struct ssymbol *sym;
+		struct _Sym_iterator *it = _Sym_iterator(frame->context);
+		while ((sym = _Sym_next(it)) != NULL)
 			if (sym->scope == PARAM) {
 				printparam(sym, frame);
 				break;
@@ -365,11 +367,13 @@ static void printframe(int verbose, Nub_state_T *frame, int frameno) {
 				put("void");
 				break;
 			}
-		}
+		FREE(it);
+	}
 	put(")\n");
-	if (verbose > 1)	/* print locals */
-		for (context = frame->context; context; context = sym->uplink) {
-			sym = _Sym_symbol(context);
+	if (verbose > 1) {	/* print locals */
+		const struct ssymbol *sym;
+		struct _Sym_iterator *it = _Sym_iterator(frame->context);
+		while ((sym = _Sym_next(it)) != NULL)
 			if (sym->scope >= LOCAL
 			&& (sym->sclass == AUTO || sym->sclass == REGISTER)) {
 				put("\t");
@@ -377,7 +381,8 @@ static void printframe(int verbose, Nub_state_T *frame, int frameno) {
 				put("\n");
 			} else if (sym->scope < LOCAL)
 				break;
-		}
+		FREE(it);
+	}
 }
 
 static void moveto(int n) {
@@ -406,6 +411,7 @@ static char *parse(char *line, Nub_coord_T *src) {
 	if ((p = strchr(line, ':')) != NULL) {
 		strncpy(src->file, line, p - line);
 		src->file[p-line] = '\0';
+		p++;
 	} else
 		p = line;
 	p = skipwhite(p);
@@ -422,7 +428,7 @@ static char *parse(char *line, Nub_coord_T *src) {
 	return skipwhite(p);
 }
 
-static void setbp(int i, Nub_coord_T *src, void *cl) {
+static void setbp(int i, const Nub_coord_T *src, void *cl) {
 	struct cdb_src *p = cl;
 
 	p->n++;
@@ -516,19 +522,18 @@ static void r_cmd(char *line) {
 }
 
 static void v_cmd(const char *line) {
-	struct ssymbol *sym;
-	void *context;
+	struct _Sym_iterator *it = _Sym_iterator(focus.context);
+	const struct ssymbol *sym;
 
-	for (context = focus.context; context; context = sym->uplink) {
-		sym = _Sym_symbol(context);
-		if (sym->name && _Sym_type(sym->module, sym->type)->op != FUNCTION
+	while ((sym = _Sym_next(it)) != NULL)
+		if (_Sym_type(sym->module, sym->type)->op != FUNCTION
 		&& sym->sclass != TYPEDEF)
-			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
+			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file != 0)
 				put("p %s:%s\n", _Sym_string(sym->module, sym->file),
-				    _Sym_string(sym->module, sym->name));
+					_Sym_string(sym->module, sym->name));
 			else
 				put("p %s\n", _Sym_string(sym->module, sym->name));
-	}
+	FREE(it);
 }
 
 static void p_cmd(char *line) {
@@ -539,7 +544,8 @@ static void p_cmd(char *line) {
 		return;
 	}
 	for ( ; *p; p = skipwhite(p)) {
-		struct ssymbol *sym;
+		int n = 0;
+		struct _Sym_iterator *it = _Sym_iterator(focus.context);
 		char *file = p, *name = p;
 		while (*p && !isspace(*p) && *p != ':')
 			p++;
@@ -551,29 +557,34 @@ static void p_cmd(char *line) {
 		} else
 			file = NULL;
 		*p++ = 0;
-		if (file == NULL && (sym = _Sym_find(name, focus.context)) != NULL) {
-			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
-				put("%s:", _Sym_string(sym->module, sym->file));
-			printsym(sym, &focus);
-			put("\n");
-		} else if (file) {
-			int n = 0;
-			void *context;
-			for (context = focus.context; context; context = sym->uplink) {
-				sym = _Sym_symbol(context);
-				if (sym->sclass == STATIC && sym->scope == GLOBAL
-				&& sym->file && strcmp(_Sym_string(sym->module, sym->file), file) == 0
-				&& sym->name && strcmp(_Sym_string(sym->module, sym->name), name) == 0) {
+		if (file == NULL) {
+			const struct ssymbol *sym;
+			while ((sym = _Sym_next(it)) != NULL)
+				if (strcmp(_Sym_string(sym->module, sym->name), name) == 0) {
+					if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
+						put("%s:", _Sym_string(sym->module, sym->file));
+					printsym(sym, &focus);
+					put("\n");
+					n++;
+					break;
+				}
+		} else {
+			const struct ssymbol *sym;
+			while ((sym = _Sym_next(it)) != NULL)
+				if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file
+				&& strcmp(_Sym_string(sym->module, sym->file), file) == 0
+				&& strcmp(_Sym_string(sym->module, sym->name), name) == 0) {
 					put("%s:", file);
 					printsym(sym, &focus);
 					put("\n");
 					n++;
 				}
-			}
-			if (n == 0)
-				put("?Unknown identifier: %s:%s\n", file, name);
-		} else
+		}
+		if (n == 0 && file != NULL)
+			put("?Unknown identifier: %s:%s\n", file, name);
+		else if (n == 0)
 			put("?Unknown identifier: %s\n", name);
+		FREE(it);
 	}
 }
 
@@ -624,7 +635,6 @@ static void docmds(void) {
 	"w      display the call stack\n"
 	"!cmd   call the shell to execute cmd\n\n"
 	"[X] means X is optional, {X} means 0 or more Xs\n";
-
 
 	prompt();
 	while (fgets(line, (int)sizeof line, in) != NULL) {
@@ -689,7 +699,8 @@ void _Cdb_startup(Nub_state_T state) {
 	focus = state;
 	frameno = -1;
 	brkpt = NULL;
-	_Sym_init();
+	_Sym_init(state.context);
+	focus.context = NULL;
 	docmds();
 }
 
