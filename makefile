@@ -36,11 +36,6 @@ $Brcc$E:	$Bstab$O $Binits$O
 
 $Binits$O:	src/inits.c;	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/inits.c
 
-src/inits.c:	$(SRCDIR)/src/inits.c makefile
-		sed '/^}/d' <$(SRCDIR)/src/inits.c >$@
-		echo '\t{extern void zstab_init(int, char *[]); zstab_init(argc, argv);}' >>$@
-		echo '}\nextern int main(int, char *[]);' >>$@
-
 CDBOBJS=$Bserver$O \
 	$Bcomm$O \
 	$Bcdb$O \
@@ -87,4 +82,4 @@ clean::
 		rm -f $B*$O
 
 clobber::	clean
-		rm -f $Blibnub$A $Bcdb$E $Brcc$E $Bprelink.sh
+		rm -f $Blibnub$A $Bcdb$E $Brcc$E $Blcc$E $Bprelink.sh
