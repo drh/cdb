@@ -1,5 +1,5 @@
 # $Id$
-INCLUDES=-I//atr/users/drh/lib/cii/1/include -I/users/drh/book/4.0/src -I//atr/users/drh/include
+INCLUDES=-I/users/drh/lib/cii/1/include -I/users/drh/book/4.0/src -I/users/drh/include
 NOTANGLE=notangle -L -t8
 CC=cc
 LD=cc
@@ -8,8 +8,8 @@ HOSTFILE=etc/win32.c
 BUILDDIR=x86/win32
 LDFLAGS=-g
 LIBS	= -lcii ws2_32.lib
-LIB=//atr/users/drh/lib/cii/1;/users/drh/book/4.0/x86/win32;/Program Files/devstudio/vc/lib
-LCCINPUTS=.;\\atr\users\drh\lib\cii\1
+LIB=/users/drh/lib/cii/1;/users/drh/book/4.0/x86/win32;/Program Files/devstudio/vc/lib;e:/pkg/devstudio/vc/lib
+LCCINPUTS=.;\users\drh\lib\cii\1
 .EXPORT:	LIB LCCINPUTS
 E=.exe
 O=.obj
