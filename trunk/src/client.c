@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#undef __STRING
 #include <errno.h>
 #include "comm.h"
 
@@ -28,7 +29,7 @@ static char *stringf(const char *fmt, ...) {
 }
 
 static void sendeach(int i, const Nub_coord_T *src, void *cl) {
-	sendmsg(out, src, *(int *)cl);
+	sendmesg(out, src, *(int *)cl);
 }
 
 static void swtch(void);
@@ -37,66 +38,66 @@ static void onbreak(Nub_state_T state) {
 	Header_T msg = NUB_BREAK;
 
 	assert(out);
-	tracemsg("%s: sending %s\n", identity, msgname(msg));
-	sendmsg(out, &msg, sizeof msg);
-	sendmsg(out, &state, sizeof state);
+	tracemesg("%s: sending %s\n", identity, mesgname(msg));
+	sendmesg(out, &msg, sizeof msg);
+	sendmesg(out, &state, sizeof state);
 	swtch();
 }
 
 static void swtch(void) {
 	for (;;) {
 		Header_T msg;
-		recvmsg(in, &msg, sizeof msg);
-		tracemsg("%s: switching on %s\n", identity, msgname(msg));
+		recvmesg(in, &msg, sizeof msg);
+		tracemesg("%s: switching on %s\n", identity, mesgname(msg));
 		switch (msg) {
 		case NUB_CONTINUE: return;
 		case NUB_QUIT: out = 0; exit(EXIT_FAILURE); break;
 		case NUB_SET: {
 			Nub_coord_T args;
-			recvmsg(in, &args, sizeof args);
+			recvmesg(in, &args, sizeof args);
 			_Nub_set(args, onbreak);
 			break;
 		}
 		case NUB_REMOVE: {
 			Nub_coord_T args;
-			recvmsg(in, &args, sizeof args);
+			recvmesg(in, &args, sizeof args);
 			_Nub_remove(args);
 			break;
 		}
 		case NUB_FETCH: {
 			int nbytes;
 			struct nub_fetch args;
-			recvmsg(in, &args, sizeof args);
-			tracemsg("%s: _Nub_fetch(space=%d,address=%p,buf=NULL,nbytes=%d)\n",
+			recvmesg(in, &args, sizeof args);
+			tracemesg("%s: _Nub_fetch(space=%d,address=%p,buf=NULL,nbytes=%d)\n",
 				 identity, args.space, args.address, args.nbytes);
 			nbytes = _Nub_fetch(args.space, args.address, NULL, args.nbytes);
-			sendmsg(out, &nbytes, sizeof nbytes);
-			sendmsg(out, args.address, nbytes);
+			sendmesg(out, &nbytes, sizeof nbytes);
+			sendmesg(out, args.address, nbytes);
 			break;
 		}
 		case NUB_STORE: {
 			struct nub_store args;
-			recvmsg(in, &args, sizeof args);
-			tracemsg("%s: _Nub_store(space=%d,address=%p,buf=%p,nbytes=%d)\n",
+			recvmesg(in, &args, sizeof args);
+			tracemesg("%s: _Nub_store(space=%d,address=%p,buf=%p,nbytes=%d)\n",
 				 identity, args.space, args.address, args.buf, args.nbytes);
 			args.nbytes = _Nub_store(args.space, args.address, args.buf, args.nbytes);
-			sendmsg(out, &args.nbytes, sizeof args.nbytes);
+			sendmesg(out, &args.nbytes, sizeof args.nbytes);
 			break;
 		}
 		case NUB_FRAME: {
 			struct nub_frame args;
-			recvmsg(in, &args, sizeof args);
+			recvmesg(in, &args, sizeof args);
 			args.n = _Nub_frame(args.n, &args.state);
-			sendmsg(out, &args, sizeof args);
+			sendmesg(out, &args, sizeof args);
 			break;
 		}
 		case NUB_SRC: {
 			Nub_coord_T src;
 			int size = sizeof src;
-			recvmsg(in, &src, sizeof src);
+			recvmesg(in, &src, sizeof src);
 			_Nub_src(src, sendeach, &size);
 			src.y = 0;
-			sendmsg(out, &src, sizeof src);
+			sendmesg(out, &src, sizeof src);
 			break;
 		}
 		default: assert(0);
@@ -147,8 +148,8 @@ static int connectto(const char *host, short port) {
 static void cleanup(void) {
 	if (out) {
 		Header_T msg = NUB_QUIT;
-		tracemsg("%s: sending %s\n", identity, msgname(msg));
-		sendmsg(out, &msg, sizeof msg);
+		tracemesg("%s: sending %s\n", identity, mesgname(msg));
+		sendmesg(out, &msg, sizeof msg);
 		closesocket(in);
 	}
 #ifdef _WIN32
@@ -161,9 +162,9 @@ void _Cdb_fault(Nub_state_T state) {
 
 	if (out == 0)
 		exit(EXIT_FAILURE);
-	tracemsg("%s: sending %s\n", identity, msgname(msg));
-	sendmsg(out, &msg, sizeof msg);
-	sendmsg(out, &state, sizeof state);
+	tracemesg("%s: sending %s\n", identity, mesgname(msg));
+	sendmesg(out, &msg, sizeof msg);
+	sendmesg(out, &state, sizeof state);
 	swtch();
 }
 
@@ -194,9 +195,9 @@ void _Cdb_startup(Nub_state_T state) {
 	identity = "client";
 	if (connectto(host, port) == EXIT_SUCCESS) {	/* start the nub */
 		Header_T msg = NUB_STARTUP;
-		tracemsg("%s: sending %s\n", identity, msgname(msg));
-		sendmsg(out, &msg, sizeof msg);
-		sendmsg(out, &state, sizeof state);
+		tracemesg("%s: sending %s\n", identity, mesgname(msg));
+		sendmesg(out, &msg, sizeof msg);
+		sendmesg(out, &state, sizeof state);
 		swtch();
 	}
 }
