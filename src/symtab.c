@@ -3,99 +3,86 @@
 #include <string.h>
 #include "mem.h"
 #include "arena.h"
-#include "seq.h"
-#include "table.h"
 #include "symtab.h"
-#include "nub.h"
 
 static char rcsid[] = "$Id$";
 
+enum { SYM=0 };
+static struct mod {
+	struct module m;
+	void *module;
+	char *constants;
+	struct mod *link;
+} *modules;
 static Arena_T arena;
-static Table_T modules;
-static Seq_T moduleList;
 
 void _Sym_init(struct module *mods[]) {
 	if (arena == NULL)
 		arena = Arena_new();
 	Arena_free(arena);
-	if (modules != NULL)
-		Table_free(&modules);
-	modules = Table_new(0, 0, 0);
-	if (moduleList != NULL)
-		Seq_free(&moduleList);
-	moduleList = Seq_new(0);
-	if (mods != NULL) {
-		struct module *module;
-		int n;
+	modules = NULL;
+	if (mods != NULL)
 		for (;; mods++) {
+			struct module *module;
+			struct mod *m;
 			int n = _Nub_fetch(SYM, mods, &module, sizeof module);
 			assert(n == sizeof module);
 			if (module == NULL)
 				break;
-			Seq_addhi(moduleList, module);
+			m = Arena_alloc(arena, sizeof *m, __FILE__, __LINE__);
+			n = _Nub_fetch(SYM, module, &m->m, sizeof m->m);
+			assert(n == sizeof m->m);
+			m->module = module;
+			m->constants = NULL;
+			m->link = modules;
+			modules = m;
 		}
-	}
 }
 
-static const void *resolve(void *module, int index) {
-	return _Sym_module(module)->constants + index;
-}
+static const void *resolve(const char *addr) {
+	struct mod *m;
 
-const struct module *_Sym_module(void *module) {
-	struct module *m = Table_get(modules, module);
-
-	if (m == NULL) {
+	assert(addr);
+	for (m = modules; m != NULL; m = m->link)
+		if (addr >= m->m.constants && addr < m->m.constants + m->m.length)
+			break;
+	assert(m);
+	if (m->constants == NULL) {
 		int n;
-		char *constants;
-		m = Arena_alloc(arena, sizeof *m, __FILE__, __LINE__);
-		n = _Nub_fetch(SYM, module, m, sizeof *m);
-		assert(n == sizeof *m);
-		constants = Arena_alloc(arena, m->length, __FILE__, __LINE__);
-		n = _Nub_fetch(SYM, (void *)m->constants, constants, m->length);
-		assert(n == m->length);
-		m->constants = constants;
-		Table_put(modules, module, m);
+		m->constants = Arena_alloc(arena, m->m.length, __FILE__, __LINE__);
+		n = _Nub_fetch(SYM, (void *)m->m.constants, m->constants, m->m.length);
+		assert(n == m->m.length);
 	}
-	return m;
+	return m->constants + (addr - m->m.constants);
+}	
+
+const char *_Sym_string(const void *str) {
+	return resolve(str);
 }
 
-const char *_Sym_string(void *module, int index) {
-	return resolve(module, index);
+const struct stype *_Sym_type(const void *type) {
+	return resolve(type);
 }
 
-const struct stype *_Sym_type(void *module, int index) {
-	return resolve(module, index);
-}
-
-const struct ssymbol *_Sym_symbol(void *module, int index) {
-	if (index == 0)
+const struct ssymbol *_Sym_symbol(const void *sym) {
+	if (sym == NULL)
 		return NULL;
-	return resolve(module, index);
-}
-
-static const struct ssymbol *context2sym(void *context) {
-	if (context != NULL) {
-		struct ssymbol sym;
-		int n = _Nub_fetch(SYM, context, &sym, sizeof sym);
-		assert(n == sizeof sym);
-		return _Sym_symbol(sym.module, sym.self);
-	} else
-		return NULL;
+	else
+		return resolve(sym);
 }
 
 struct _Sym_iterator {
 	const struct ssymbol *sym;
 	void *module;
-	int i, count;
+	struct mod *m;
 };
 
-struct _Sym_iterator *_Sym_iterator(void *context) {
+struct _Sym_iterator *_Sym_iterator(const void *context) {
 	struct _Sym_iterator *it;
 
 	NEW(it);
-	it->i = 0;
-	it->count = Seq_length(moduleList);
-	it->sym = context2sym(context);
+	it->sym = _Sym_symbol(context);
+	it->m = modules;
 	if (it->sym != NULL)
 		it->module = it->sym->module;
 	else
@@ -108,15 +95,15 @@ const struct ssymbol *_Sym_next(struct _Sym_iterator *it) {
 	for (;;)
 		if (it->sym != NULL) {
 			const struct ssymbol *sym = it->sym;
-			it->sym = _Sym_symbol(sym->module, sym->uplink);
+			it->sym = _Sym_symbol(sym->uplink);
 			return sym;
-		} else if (it->i < it->count) {
-			void *module;
-			do {
-				module = Seq_get(moduleList, it->i);
-				it->i++;
-				it->sym = context2sym(_Sym_module(module)->link);
-			} while (module == it->module);
-		} else
-			return NULL;
+		} else {
+			while (it->m != NULL && it->m->module == it->module)
+				it->m = it->m->link;
+			if (it->m != NULL) {
+				it->sym = _Sym_symbol(it->m->m.globals);
+				it->m = it->m->link;
+			} else
+				return NULL;
+		}
 }

@@ -25,19 +25,15 @@ void _Cdb_startup(Nub_state_T state) {
 		fprintf(stderr, "module %x\n", m->uid);
 		for (j = 1; m->files[j]; j++)
 			fprintf(stderr, " %s", m->files[j]);
-		if (m->link != NULL) {
-			struct ssymbol *p = m->link;
+		if (m->globals != NULL) {
+			const struct ssymbol *p;
 			fprintf(stderr, ":");
-			for (;; ) {
+			for (p = m->globals; p != NULL; p= p->uplink)
 				for (j = 1; m->files[j]; j++)
-					if (strcmp(m->constants + p->file, m->files[j]) == 0) {
-						fprintf(stderr, " %s %u", m->constants + p->name, p->type);
+					if (strcmp(p->file, m->files[j]) == 0) {
+						fprintf(stderr, " %s %p", p->name, p->type);
 						break;
 					}
-				if (p->uplink == 0)
-					break;
-				p = (struct ssymbol *)(m->constants + p->uplink);
-			}
 		} else
 			fprintf(stderr, "\n");
 		for (j = 1; m->files[j]; j++) {

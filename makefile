@@ -26,7 +26,7 @@ $Blcc$E:	$Blcc$O $Bhost$O;	$(LD) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
 $Blcc$O:	$(SRCDIR)/etc/lcc.c;	$(CC) -v -c $(CFLAGS) -o $@ $(SRCDIR)/etc/lcc.c
 $Bhost$O:	$(HOSTFILE);		$(CC) -c $(CFLAGS) -o $@ $(HOSTFILE)
  
-$Blibnub$A:	$Bclient$O $Bnub$O $Bcomm$O
+$Blibnub$A:	$Bclient$O $Bnub$O $Bsymstub$O $Bcomm$O
 		ar ruv $@ $?
 
 $Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@
@@ -76,8 +76,9 @@ $Bsymtab$O:	src/symtab.c src/symtab.h src/glue.h
 $Bstab$O:	src/stab.c src/glue.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/stab.c
 
-stubtest:	wf.c lookup.c $Bclientstub$O
-		$Blcc -Wo-lccdir=$(BUILDDIR) -Wl-map -v -Wo-g4 wf.c lookup.c $Bclientstub$O
+stubtest:	wf.c lookup.c $Bcdb$O
+		env LCCINPUTS=".;h:/drh/lib/cii/1" \
+		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bcdb$O libcii.lib
 
 test:		wf.c lookup.c $Blibnub$A $Bcdb$E
 		$Blcc -Wo-lccdir=$(BUILDDIR) -Wl-map -v -Wo-g4 wf.c lookup.c

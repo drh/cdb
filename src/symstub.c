@@ -1,43 +1,56 @@
-#include "symtab.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include "mem.h"
+#include "symtab.h"
 
 static char rcsid[] = "$Id$";
 
-static struct module **modules;
+static struct module *dummy[1];
+static struct module **modules = dummy;
 
-static const void *resolve(unsigned module, int index) {
-	int i;
-
-	for (i = 0; modules[i] != NULL; i++)
-		if (modules[i]->uid == module)
-			return modules[i]->constants + index;
-	assert(0);
+void _Sym_init(struct module *mods[]) {
+	if (mods != NULL)
+		modules = mods;
 }
 
-void _Sym_init(void) {}
+const char *_Sym_string(const void *str) { return str; }
+const struct stype *_Sym_type(const void *type) { return type; }
+const struct ssymbol *_Sym_symbol(const void *sym) { return sym; }
 
-const struct ssymbol *_Sym_symbol(unsigned module, int index) {
-	return resolve(module, index);
+struct _Sym_iterator {
+	const struct ssymbol *sym;
+	void *module;
+	struct module **m;
+};
+
+struct _Sym_iterator *_Sym_iterator(const void *context) {
+	struct _Sym_iterator *it;
+
+	NEW(it);
+	it->sym = _Sym_symbol(context);
+	it->m = modules;
+	if (it->sym != NULL)
+		it->module = it->sym->module;
+	else
+		it->module = NULL;
+	return it;
 }
 
-const struct stype *_Sym_type(unsigned module, int index) {
-	return resolve(module, index);
-}
-
-const char *_Sym_string(unsigned module, int index) {
-	return resolve(module, index);
-}
-
-const struct ssymbol *_Sym_find(unsigned module, const char *name, void *context) {
-	const struct ssymbol *sym = context;
-
-	for (sym = context; sym != NULL; ) {
-		if (sym->name != 0 && strcmp(name, _Sym_string(sym->module, sym->name)) == 0)
+const struct ssymbol *_Sym_next(struct _Sym_iterator *it) {
+	assert(it);
+	for (;;)
+		if (it->sym != NULL) {
+			const struct ssymbol *sym = it->sym;
+			it->sym = _Sym_symbol(sym->uplink);
 			return sym;
-		if (sym->uplink == 0);
-			break;
-		sym = _Sym_symbol(module, sym->uplink);
-	}
-	return NULL;
+		} else {
+			while (*it->m != NULL && *it->m == it->module)
+				it->m++;
+			if (*it->m != NULL) {
+				it->sym = _Sym_symbol((*it->m)->globals);
+				it->m++;
+			} else
+				return NULL;
+		}
 }
