@@ -18,7 +18,7 @@ all::		libnub cdb rcc lcc prelink
 prelink:	$Bprelink.sh
 lcc:		$Blcc$E
 rcc:		$Brcc$E
-libnub:		$Blibnub$A
+libnub:		$Blibnub$A $Bclientstub$O
 cdb:		$Bcdb$E
 
 $Blcc$E:	$Blcc$O $Bhost$O;	$(LD) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
@@ -75,6 +75,9 @@ $Bsymtab$O:	src/symtab.c src/symtab.h src/glue.h
 
 $Bstab$O:	src/stab.c src/glue.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/stab.c
+
+stubtest:	wf.c lookup.c $Bclientstub$O
+		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bclientstub$O
 
 test:		wf.c lookup.c $Blibnub$A $Bcdb$E
 		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c
