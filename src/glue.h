@@ -3,15 +3,17 @@
 
 /* $Id$ */
 
-typedef unsigned short uint16;
+typedef unsigned short u2;
 
 struct module {
         union scoordinate *coordinates;
         char **files;
         struct ssymbol *link;
-	uint16 strcount;
-	const char *strings;
+	unsigned length;
+	const struct constant *constants;
 };
+
+enum { cString=1, cType, cSymbol, cCoord };
 
 struct stype {
         unsigned short len;
@@ -26,9 +28,9 @@ struct stype {
                         unsigned nelems;
                 } a;
                 struct {	/* structs/unions */
-                        uint16 tag;
+                        u2 tag;
                         struct {
-                                uint16 name;
+                                u2 name;
                                 struct stype *type;
                                 union offset {
                                         unsigned off;
@@ -39,9 +41,9 @@ struct stype {
                         } fields[1];
                 } s;
                 struct {	/* enums */
-                        uint16 tag;
+                        u2 tag;
                         struct {
-                                uint16 name;
+                                u2 name;
                                 int value;
                         } enums[1];
                 } e;
@@ -65,8 +67,8 @@ union scoordinate {
 struct ssymbol {
         int offset;
         void *address;
-        uint16 name;
-        uint16 file;
+        u2 name;
+        u2 file;
         unsigned char scope;
         unsigned char sclass;
 	struct module *module;
@@ -81,4 +83,22 @@ struct sframe {
         struct ssymbol *tail;
         int ip;
 };
+
+struct constant {
+	unsigned char tag;
+	union {
+		struct {	/* cString */
+			u2 len;
+			char str[1];
+		} s;
+		struct {	/* cType */
+			u2 len;
+			struct stype type;
+		} t;
+		struct {	/* cSymbol */
+			struct ssymbol sym;
+		} y;
+	} u;
+};
+
 #endif
