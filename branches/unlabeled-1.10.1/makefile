@@ -1,5 +1,5 @@
 # $Id$
-CC=lcc
+CC=cc
 CFLAGS	= -g
 # Configuration:
 # SRCDIR	root of the lcc 4.0 distribution

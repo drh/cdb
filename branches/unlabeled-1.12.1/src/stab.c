@@ -440,6 +440,7 @@ static Symbol tail(void) {
 /* point_hook - called at each execution point */
 static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 	Coordinate *p;
+	Tree t;
 		
 	NEW(p, PERM);
 	*p = *cp;
@@ -449,13 +450,17 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 	add breakpoint test to *e:
 	(module.coordinates[i].i < 0 && _Nub_bp(i), *e)
 	*/
-	*e = right(tree(AND, voidtype,
-		(*optree['<'])(LT,
-			rvalue((*optree['+'])(ADD,
-				pointer(idtree(coordinates)),
-				cnsttree(inttype, Seq_length(coordList)/2L))),
-			cnsttree(inttype, 0L)),
-		vcall(nub_bp, voidtype, cnsttree(inttype, Seq_length(coordList)/2L), NULL)), *e);
+	t = tree(AND, voidtype,
+		 (*optree['<'])(LT,
+				rvalue((*optree['+'])(ADD,
+		pointer(idtree(coordinates)),
+		cnsttree(inttype, Seq_length(coordList)/2L))),
+				cnsttree(inttype, 0L)),
+		 vcall(nub_bp, voidtype, cnsttree(inttype, Seq_length(coordList)/2L), NULL));
+	if (*e)
+		*e = tree(RIGHT, (*e)->type, t, *e);
+	else
+		*e = t;
 }
 
 /* setoffset - emits code to set the offset field for p */
