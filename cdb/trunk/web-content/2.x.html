@@ -4,7 +4,7 @@
 
 	<head>
 		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
-		<link title="David R. Hanson" href="http://www.research.microsoft.com/%7edrh/" rev="made">
+		<link title="David R. Hanson" href="http://drh.home.dyndns.org" rev="made">
 		<link href="style.css" type="text/css" rel="stylesheet" media="all">
 		<title>cdb 2.x</title>
 		<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
@@ -13,9 +13,9 @@
 	<body>
 		<p><span class="banner"><a href="http://www.cs.princeton.edu">Princeton CS</a> &raquo; <a href="http://www.cs.princeton.edu/software">Software</a> &raquo; <a href="http://www.cs.princeton.edu/software/lcc/">lcc, A Retargetable C Compiler</a> &raquo; <a href="index.html">cdb, A Machine-Independent Debugger</a> &raquo; cdb 2.x</span></p>
 		<h1>cdb 2.x</h1>
-		<h4><strong>David R. Hanson, Microsoft Research</strong></h4>
+		<h4><strong>David R. Hanson, Google</strong></h4>
 		<h2>Introduction</h2>
-		<p>cdb is a machine-independent debugger for C programs compiled by <a href="http://www.cs.princeton.edu/software/lcc/">lcc</a> 4.x, a retargetable compiler for ISO Standard C. The latest version of cdb, <a href="ftp://ftp.cs.princeton.edu/pub/people/drh/cdb22.zip">version 2.2</a> (40KB ZIP file), differs in important ways from the implementation described in D. R. Hanson and M. Raghavachari, &quot;A Machine-Independent Debugger,&quot; <cite>Software&#151;Practice and Experience</cite> &nbsp;<strong>26</strong> (11), 1277-1299, Nov. 1996 (<a href="http://www.research.microsoft.com/%7edrh/pubs/cdb.pdf"><font size="-1">PDF</font></a> 350KB).</p>
+		<p>cdb is a machine-independent debugger for C programs compiled by <a href="http://www.cs.princeton.edu/software/lcc/">lcc</a> 4.x, a retargetable compiler for ISO Standard C. The latest version of cdb, <a href="ftp://ftp.cs.princeton.edu/pub/people/drh/cdb22.zip">version 2.2</a> (40KB ZIP file), differs in important ways from the implementation described in D. R. Hanson and M. Raghavachari, &quot;A Machine-Independent Debugger,&quot; <cite>Software&#151;Practice and Experience</cite> &nbsp;<strong>26</strong> (11), 1277-1299, Nov. 1996 (<a href="http://drh.home.dyndns.org/pubs/cdb.pdf"><font size="-1">PDF</font></a> 350KB).</p>
 		<p>The remainder of this page describes the differences in sections that parallel the SPE paper. This version of cdb runs on the x86 under Windows NT 4.01 and on the Sparc under Solaris.</p>
 		<h2>Design</h2>
 		<p>Most of the nub interface (defined in <a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/nub.h">nub.h</a>) remains unchanged; in the following listing and in those below, boldface identifies the changes.</p>
@@ -237,8 +237,8 @@ _Nub_tos = &amp;tos;</pre>
 		</blockquote>
 		<p>As mentioned in the paper (bottom of page 1296), this approach requires nub-aware versions of <code>setjmp</code> and <code>longjmp</code> that reset <code>_Nub_tos</code> correctly on non-local returns. The advantage of this approach is that less nub-specific code is generated at calls and returns.</p>
 		<hr>
-		<address><a href="http://www.research.microsoft.com/%7edrh/">David Hanson</a><br>
-			$Revision: 1.5 $ $Date: 2004/07/30 07:19:12 $</address>
+		<address><a href="http://drh.home.dyndns.org">David Hanson</a><br>
+			$Revision: 1.5 $ $Date$</address>
 	</body>
 
 </html>

@@ -111,18 +111,18 @@
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
-				<attribute name="externalUrl" value="http://www.research.microsoft.com/%257edrh/pubs/cdb.pdf"/>
-				<attribute name="url" value="siteEntry://externals/Files/cdb"/>
+				<attribute name="externalUrl" value="http://drh.home.dyndns.org/pubs/cdb.pdf"/>
+				<attribute name="url" value="siteEntry://externals/Files/cdb%2520paper"/>
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
-				<attribute name="externalUrl" value="http://www.research.microsoft.com/%257edrh/pubs/cdb3.pdf"/>
-				<attribute name="url" value="siteEntry://externals/Files/cdb3"/>
+				<attribute name="externalUrl" value="http://drh.home.dyndns.org/pubs/cdb.pdf"/>
+				<attribute name="url" value="siteEntry://externals/Files/cdb%2520talk"/>
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
-				<attribute name="externalUrl" value="http://www.research.microsoft.com/%257edrh/pubs/cdbtalk.pdf"/>
-				<attribute name="url" value="siteEntry://externals/Files/cdbtalk"/>
+				<attribute name="externalUrl" value="http://drh.home.dyndns.org/pubs/cdb3.pdf"/>
+				<attribute name="url" value="siteEntry://externals/Files/cdb3%2520paper"/>
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
@@ -146,7 +146,7 @@
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
-				<attribute name="externalUrl" value="http://www.research.microsoft.com/%257edrh/"/>
+				<attribute name="externalUrl" value="http://drh.home.dyndns.org"/>
 				<attribute name="url" value="siteEntry://externals/Home%2520pages/drh"/>
 				<attribute name="urlParams" value=""/>
 			</item>
@@ -172,7 +172,7 @@
 			</item>
 			<item>
 				<attribute name="folderType" value="7"/>
-				<attribute name="unfolded" value="yes"/>
+				<attribute name="unfolded" value="no"/>
 				<attribute name="url" value="siteEntry://externals/Scanned%2520URLs/"/>
 			</item>
 		</list>
