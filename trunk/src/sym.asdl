@@ -13,6 +13,7 @@ item	= Symbol(symbol symbol)
 coordinate	= (identifier file,int x,int y)
 
 symbol	= STATIC(int index)
+	| GLOBAL(int index)
 	| TYPEDEF
 	| LOCAL(int offset)
 	| PARAM(int offset)

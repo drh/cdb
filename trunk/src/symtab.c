@@ -47,15 +47,20 @@ void _Sym_init(struct module *mods[]) {
 }
 
 void *_Sym_address(sym_symbol_ty sym) {
-	int i, count = Seq_length(modules);
+	int i, index, count = Seq_length(modules);
 
 	assert(sym);
-	assert(sym->kind == sym_STATIC_enum);
+	if (sym->kind == sym_STATIC_enum)
+		index = sym->v.sym_STATIC.index;
+	else if (sym->kind == sym_GLOBAL_enum)
+		index = sym->v.sym_GLOBAL.index;
+	else
+		assert(0);
 	for (i = 0; i < count; i++) {
 		struct module *m = Seq_get(modules, i);
 		if (m->uname == sym->module) {
 			void *addr;
-			int n = _Nub_fetch(0, m->addresses + sym->v.sym_STATIC.index, &addr, sizeof addr);
+			int n = _Nub_fetch(0, m->addresses + index, &addr, sizeof addr);
 			assert(n == sizeof addr);
 			return addr;
 		}
