@@ -1,3 +1,4 @@
+# $Id$
 INCLUDES=-I//atr/users/drh/lib/cii/1/include -I/users/drh/book/4.0/src
 NOTANGLE=notangle -L -t8
 CC=cc
