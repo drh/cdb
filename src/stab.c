@@ -30,6 +30,18 @@ static Table_T constantTable;
 static Seq_T constantList;
 static Seq_T locals;
 
+char *string(const char *str) {
+	return (char *)Atom_string(str);
+}
+
+char *stringd(long n) {
+	return (char *)Atom_int(n);
+}
+
+char *stringn(const char *str, int len) {
+	return (char *)Atom_new(str, len);
+}
+
 /* comment - emits an assembly language comment */
 static void comment(char *fmt, ...) {
 	va_list ap;
