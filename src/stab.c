@@ -200,7 +200,7 @@ static int symboluid(const Symbol p) {
 	}
 	Table_put(uidTable, p, sym);
 	Seq_addhi(pickle->items, sym_Symbol(uid, sym));
-	sym->src = sym_coordinate(p->src.file, p->src.x, p->src.y);
+	sym->src = sym_coordinate(p->src.file ? p->src.file : string(""), p->src.x, p->src.y);
 	sym->uplink = symboluid(up(p->up));
 	return sym->uid;
 }
@@ -278,7 +278,7 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 	
 	/*
 	add breakpoint test to *e:
-	(_Nub_bpflags[i] < 0 && _Nub_bp(i), *e)
+	(_Nub_bpflags[i] != 0 && _Nub_bp(i), *e)
 	*/
 	t = tree(AND, voidtype,
 		(*optree[NEQ])(NE,
@@ -291,7 +291,8 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 		*e = tree(RIGHT, (*e)->type, t, *e);
 	else
 		*e = t;
-	Seq_addhi(pickle->spoints, sym_spoint(sym_coordinate(cp->file, cp->x, cp->y), tail()));
+	Seq_addhi(pickle->spoints,
+		  sym_spoint(sym_coordinate(cp->file ? cp->file : string(""), cp->x, cp->y), tail()));
 }
 
 /* setoffset - remember p for later adjustment of its offset */
@@ -364,7 +365,12 @@ static void stabfend(Symbol cfunc, int lineno) {
 	tos = NULL;
 }
 
-/* return_hook - called at return statements */
+/* return_hook - called at return statements.
+For return *e, return_hook changes the expression to be the equivalent of
+the C expression
+
+	(_Nub_tos = tos.down, *e)
+*/
 static void return_hook(void *cl, Symbol cfunc, Tree *e) {
 	walk(asgn(nub_tos, field(lvalue(idtree(tos)), string("down"))), 0, 0);
 }
@@ -399,7 +405,7 @@ static void stabinit(char *file, int argc, char *argv[]) {
 	else
 		leader = " #";  /* it's a MIPS or ALPHA */
 	uname = time(NULL)<<7|getpid();
-	pickle = sym_module(file, uname, 1, Seq_new(0), 0, Seq_new(0));
+	pickle = sym_module(file ? file : string(""), uname, 1, Seq_new(0), 0, Seq_new(0));
 	locals = Seq_new(0);
 	statics = Seq_new(0);
 	uidTable = Table_new(0, 0, 0);
