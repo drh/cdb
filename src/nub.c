@@ -9,7 +9,7 @@ static char rcsid[] = "$Id$";
 struct sframe *_Nub_tos;
 
 static Nub_callback_T faulthandler;
-static Nub_callback_T breakhandler;
+Nub_callback_T breakhandler;
 static int frameno;
 static struct sframe *fp;
 static struct { char *start, *end; } text, data, stack;

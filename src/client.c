@@ -170,6 +170,8 @@ void _Cdb_startup(Nub_state_T state) {
 	identity = "client";
 	if (connectto(host, port) == EXIT_SUCCESS) {	/* start the nub */
 		Header_T msg = NUB_STARTUP;
+		extern Nub_callback_T breakhandler;
+		breakhandler = onbreak;
 		tracemesg("%s: sending %s\n", identity, mesgname(msg));
 		sendmesg(out, &msg, sizeof msg);
 		sendmesg(out, &state, sizeof state);

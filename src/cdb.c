@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <ctype.h>
 #include <string.h>
@@ -38,10 +39,10 @@ int memcmp(const void *s1, const void *s2, size_t n) {
 	return 0;
 }
 
-static int getvalue(int space, void *address, void *buf, int size) {
+static int getvalue(void *address, void *buf, int size) {
 	int n;
 
-	n = _Nub_fetch(space, address, buf, size);
+	n = _Nub_fetch(0, address, buf, size);
 	assert(n == size);
 	return n;
 }
@@ -54,90 +55,100 @@ static void put(char *fmt, ...) {
 	va_end(ap);
 }
 
-static void tput(int uname, int uid) {
-	sym_type_ty type = _Sym_type(uname, uid);
-#if 0
-	const struct stype *ty = _Sym_type(type);
-	void *end = (char *)ty + ty->len;
+static void tput(int uname, int uid);
 
-	switch (ty->op) {
-	case CONST: case VOLATILE: case CONST+VOLATILE:
-		if (ty->op == CONST    || ty->op == CONST+VOLATILE)
-			put("const ");
-		if (ty->op == VOLATILE || ty->op == CONST+VOLATILE)
-			put("volatile ");
-		tput(ty->u.q.type);
+static void ftput(Seq_T fields, int uname) {
+	int i, count = Seq_length(fields);
+
+	put("{");
+	for (i = 0; i < count; i++) {
+		sym_field_ty f = Seq_get(fields, i);
+		tput(uname, f->type);
+		put(" %s; ", f->id);
+	}
+	put("}");
+}
+
+static void tput(int uname, int uid) {
+	sym_type_ty ty = _Sym_type(uname, uid);
+
+	assert(ty);
+	switch (ty->kind) {
+	case sym_CONST_enum:
+		put("const ");
+		tput(uname, ty->v.sym_CONST.type);
 		break;
-	case POINTER: {
-		const struct stype *rty = _Sym_type(ty->u.p.type);
-		if (rty->op == STRUCT)
-			put("struct %s ", _Sym_string(rty->u.s.tag));
-		else if (rty->op == UNION)
-			put("union %s ", _Sym_string(rty->u.s.tag));
-		else if (rty->op != POINTER) {
-			tput(ty->u.p.type);
+	case sym_VOLATILE_enum:
+		put("volatile ");
+		tput(uname, ty->v.sym_VOLATILE.type);
+		break;
+	case sym_POINTER_enum: {
+		sym_type_ty rty = _Sym_type(uname, ty->v.sym_POINTER.type);
+		if (rty->kind == sym_STRUCT_enum)
+			put("struct %s ", rty->v.sym_STRUCT.tag);
+		else if (rty->kind == sym_UNION_enum)
+			put("union %s ", rty->v.sym_UNION.tag);
+		else if (rty->kind != sym_POINTER_enum) {
+			tput(uname, ty->v.sym_POINTER.type);
 			put(" ");
 		} else
-			tput(ty->u.p.type);
+			tput(uname, ty->v.sym_POINTER.type);
 		put("*");
 		break;
 		}
-	case ARRAY:
-		tput(ty->u.a.type);
-		if (ty->u.a.nelems > 0)
-			put("[%d]", ty->u.a.nelems);
+	case sym_ARRAY_enum:
+		tput(uname,ty->v.sym_ARRAY.type);
+		if (ty->v.sym_ARRAY.nelems > 0)
+			put("[%d]", ty->v.sym_ARRAY.nelems);
 		else
 			put("[]");
 		break;
-	case FUNCTION: {
-		int i;
-		tput(ty->u.f.type);
+	case sym_FUNCTION_enum: {
+		int i, count = Seq_length(ty->v.sym_FUNCTION.formals);
+		tput(uname, ty->v.sym_FUNCTION.type);
 		put(" (");
-		for (i = 0; (void *)&ty->u.f.args[i] < end; i++) {
+		for (i = 0; i < count; i++) {
 			if (i > 0)
 				put(",");
-			tput(ty->u.f.args[i]);
+			tput(uname, *(int *)Seq_get(ty->v.sym_FUNCTION.formals, i));
 		}
 		put(")");
 		break;
 		}
-	case STRUCT:
-	case UNION: {
-		int i;
-		put("%s %s { ", ty->op == STRUCT ? "struct" : "union",
-			_Sym_string(ty->u.s.tag));
-		for (i = 0; (void *)&ty->u.s.fields[i] < end; i++) {
-			tput(ty->u.s.fields[i].type);
-			put(" %s; ", _Sym_string(ty->u.s.fields[i].name));
-		}
-		put("}");
+	case sym_STRUCT_enum:
+		put("struct %s ", ty->v.sym_STRUCT.tag);
+		ftput(ty->v.sym_STRUCT.fields, uname);
 		break;
-		}
-	case ENUM: {
-		int i;
-		put("enum %s {", _Sym_string(ty->u.s.tag));
-		for (i = 0; (void *)&ty->u.e.enums[i] < end; i++) {
+	case sym_UNION_enum:
+		put("union %s ", ty->v.sym_UNION.tag);
+		ftput(ty->v.sym_UNION.fields, uname);
+		break;
+	case sym_ENUM_enum: {
+		int i, count = Seq_length(ty->v.sym_ENUM.ids);
+		put("enum %s {", ty->v.sym_ENUM.tag);
+		for (i = 0; i < count; i++) {
+			sym_enum__ty e = Seq_get(ty->v.sym_ENUM.ids, i);
 			if (i > 0)
 				put(",");
-			put("%s=%d", _Sym_string(ty->u.e.enums[i].name), ty->u.e.enums[i].value);
+			put("%s=%d", e->id, e->value);
 		}
 		put("}");
 		break;
 		}
-	case VOID: put("void"); break;
+	case sym_VOID_enum: put("void"); break;
 #define xx(t) if (ty->size == sizeof (t)) do { put(#t); return; } while (0)
-	case FLOAT:
+	case sym_FLOAT_enum:
 		xx(float);
 		xx(double);
 		xx(long double);
 		assert(0);
-	case INT:
+	case sym_INT_enum:
 		xx(char);
 		xx(short);
 		xx(int);
 		xx(long);
 		assert(0);
-	case UNSIGNED:
+	case sym_UNSIGNED_enum:
 		xx(unsigned char);
 		xx(unsigned short);
 		xx(unsigned int);
@@ -146,7 +157,6 @@ static void tput(int uname, int uid) {
 #undef xx
 	default:assert(0);
 	}
-#endif
 }
 
 static void sput(char *address, int max) {
@@ -155,7 +165,7 @@ static void sput(char *address, int max) {
 
 	put("\"");
 	for (i = 0; i < max; i += (int)sizeof buf) {
-		getvalue(0, address + i, buf, sizeof buf);
+		getvalue(address + i, buf, sizeof buf);
 		for (j = 0; j < (int)sizeof buf; j++)
 			if (buf[j] == 0) {
 				put("\"");
@@ -168,138 +178,149 @@ static void sput(char *address, int max) {
 	put("...");
 }
 
+static void vput(int uname, int uid, char *address);
+
+static void fvput(Seq_T fields, int uname, void *address) {
+	int i, count = Seq_length(fields);
+
+	put("{");
+	for (i = 0; i < count; i++) {
+		sym_field_ty f = Seq_get(fields, i);
+		if (i > 0)
+			put(",");
+		put("%s=", f->id);
+		if (f->bitsize > 0) {
+			unsigned buf;
+			sym_type_ty fty = _Sym_type(uname, f->type);
+			getvalue((char *)address + f->offset, &buf, sizeof (unsigned));
+			buf >>= f->lsb;
+			if (fty->kind == sym_UNSIGNED_enum || (buf&(1<<(f->bitsize-1))) == 0)
+				put("%u", f->bitsize == 8*sizeof buf ? buf : buf&(~(~0UL<<f->bitsize)));
+			else
+				put("%d", f->bitsize == 8*sizeof buf ? buf : (~0UL<<f->bitsize)|buf);
+		} else
+			vput(uname, f->type, (char *)address + f->offset);
+	}
+	put("}");
+}
+
 static void vput(int uname, int uid, char *address) {
-	sym_type_ty type = _Sym_type(uname, uid);
-#if 0
-	const struct stype *ty = _Sym_type(type);
-	void *end = (char *)ty + ty->len;
+	sym_type_ty ty = _Sym_type(uname, uid);
 
 	if (address == NULL) {
 		put("?");
 		return;
 	}
-	switch (ty->op) {
-	case CONST: case VOLATILE: case CONST+VOLATILE:
-		vput(ty->u.q.type, address);
+	switch (ty->kind) {
+	case sym_CONST_enum:
+		vput(uname, ty->v.sym_CONST.type, address);
 		break;
-	case POINTER: case FUNCTION: {
+	case sym_VOLATILE_enum:
+		vput(uname, ty->v.sym_VOLATILE.type, address);
+		break;
+	case sym_FUNCTION_enum: {
 		void *p;
 		put("(");
-		tput(type);
+		tput(uname, uid);
 		put(")");
-		getvalue(DATA, address, &p, ty->size);
+		getvalue(address, &p, ty->size);
 		put("0X%x", p);
-		if (p && _Sym_type(ty->u.p.type)->size == 1) {
+		break;
+		}
+	case sym_POINTER_enum: {
+		void *p;
+		put("(");
+		tput(uname, uid);
+		put(")");
+		getvalue(address, &p, ty->size);
+		put("0X%x", p);
+		if (p != NULL && _Sym_type(uname, ty->v.sym_POINTER.type)->size == 1) {
 			put(" ");
 			sput(p, 80);
 		}
 		break;
 		}
-	case ARRAY: {
+	case sym_ARRAY_enum: {
 		char prev[1024], buf[1024];
-		int size = _Sym_type(ty->u.p.type)->size;
-		if (ty->u.a.nelems > 0 && size == 1) {
+		int size = _Sym_type(uname, ty->v.sym_ARRAY.type)->size;
+		if (ty->v.sym_ARRAY.nelems > 0 && size == 1) {
 			put("{");
 			sput(address, 80);
 			put("}");
-		} else if (ty->u.a.nelems > 10 && size <= sizeof buf) {
+		} else if (ty->v.sym_ARRAY.nelems > 10 && size <= sizeof buf) {
 			int i;
 			put("{");
-			for (i = 0; i < (int)ty->u.a.nelems - 1; ) {
+			for (i = 0; i < ty->v.sym_ARRAY.nelems - 1; ) {
 				put("\n [%d]=", i);
-				vput(ty->u.a.type, address);
-				getvalue(DATA, address, prev, size);
-				while (++i < (int)ty->u.a.nelems - 1) {
+				vput(uname, ty->v.sym_ARRAY.type, address);
+				getvalue(address, prev, size);
+				while (++i < ty->v.sym_ARRAY.nelems - 1) {
 					address += size;
-					getvalue(DATA, address, buf, size);
+					getvalue(address, buf, size);
 					if (memcmp(prev, buf, size) != 0)
 						break;
+					put(".");
 				}
 			}
 			put("\n [%d]=", i);
-			vput(ty->u.a.type, address);
+			vput(uname, ty->v.sym_ARRAY.type, address);
 			put("\n}");
-		} else if (ty->u.a.nelems > 0) {
+		} else if (ty->v.sym_ARRAY.nelems > 0) {
 			int i;
 			put("{");
-			vput(ty->u.a.type, address);
-			for (i = 1; i < (int)ty->u.a.nelems; i++) {
+			vput(uname, ty->v.sym_ARRAY.type, address);
+			for (i = 1; i < ty->v.sym_ARRAY.nelems; i++) {
 				put(",");
 				address = (char *)address + size;
-				vput(ty->u.a.type, address);
+				vput(uname, ty->v.sym_ARRAY.type, address);
 			}
 			put("}");
 		} else
 			put("0X%x", address);
 		break;
 		}
-	case STRUCT:
-	case UNION: {
-		int i;
-		for (i = 0; (void *)&ty->u.s.fields[i] < end; i++) {
-			if (i > 0)
-				put(",");
-			put("%s=", _Sym_string(ty->u.s.fields[i].name));
-			if (ty->u.s.fields[i].u.offset < 0) {
-				unsigned buf, off;
-				int size, lsb;
-				const struct stype *fty = _Sym_type(ty->u.s.fields[i].type);
-				static union { int i; char endian; } little = { 1 };
-				if (little.endian) {
-					lsb  = ty->u.s.fields[i].u.le.lsb;
-					size = -ty->u.s.fields[i].u.le.size + 1;
-					off  = ty->u.s.fields[i].u.le.offset;
-				} else {
-					lsb = ty->u.s.fields[i].u.be.lsb;
-					size = -ty->u.s.fields[i].u.be.size + 1;
-					off  = ty->u.s.fields[i].u.be.offset;
-				}
-				getvalue(DATA, (char *)address + off, &buf, sizeof (unsigned));
-				buf >>= lsb;
-				if (fty->op == UNSIGNED || (buf&(1<<(size-1))) == 0)
-					put("%u", size == 8*sizeof buf ? buf : buf&(~(~0UL<<size)));
-				else
-					put("%d", size == 8*sizeof buf ? buf : (~0UL<<size)|buf);
-			} else
-				vput(ty->u.s.fields[i].type, (char *)address + ty->u.s.fields[i].u.offset);
-		}
-		put("}");
+	case sym_STRUCT_enum:
+		fvput(ty->v.sym_STRUCT.fields, uname, address);
 		break;
-		}
-	case ENUM: {
-		int i, value;
-		getvalue(DATA, address, &value, ty->size);
-		for (i = 0; (void *)&ty->u.e.enums[i] < end; i++)
-			if (ty->u.e.enums[i].value == value) {
-				put("%s", _Sym_string(ty->u.e.enums[i].name));
+	case sym_UNION_enum:
+		fvput(ty->v.sym_UNION.fields, uname, address);
+		break;
+	case sym_ENUM_enum: {
+		int i, count = Seq_length(ty->v.sym_ENUM.ids), value;
+		getvalue(address, &value, ty->size);
+		for (i = 0; i < count; i++) {
+			sym_enum__ty e = Seq_get(ty->v.sym_ENUM.ids, i);
+			if (e->value == value) {
+				put("%s", e->id);
 				return;
 			}
-		put("(enum %s)%d", _Sym_string(ty->u.s.tag), value);
+		}
+		put("(enum %s)%d", ty->v.sym_ENUM.tag, value);
 		break;
 		}
-	case VOID:      put("void"); break;
+	case sym_VOID_enum: put("void"); break;
 #define xx(t,fmt) if (ty->size == sizeof (t)) do { t x; \
-	getvalue(DATA, address, &x, ty->size); put(fmt, x); return; } while (0)
-	case FLOAT:
+	getvalue(address, &x, ty->size); put(fmt, x); return; } while (0)
+	case sym_FLOAT_enum:
 		xx(float,"%f");
 		xx(double, "%f");
 		xx(long double, "%Lg");
 		assert(0);
-	case INT:
+	case sym_INT_enum:
 		xx(short, "%d");
 		xx(int, "%d");
 		xx(long, "%ld");
 		assert(ty->size == sizeof (char));
 		{
 			char x;
-			getvalue(DATA, address, &x, ty->size);
+			getvalue(address, &x, ty->size);
 			if (x >= ' ' && x < 0177)
 				put("'%c'", x);
 			else
 				put("'\\%03o'", x&0377);
 		}
 		break;
-	case UNSIGNED:
+	case sym_UNSIGNED_enum:
 		xx(unsigned char, "'%c'");
 		xx(unsigned short, "%u");
 		xx(unsigned int, "%u");
@@ -307,17 +328,15 @@ static void vput(int uname, int uid, char *address) {
 		assert(ty->size == sizeof (unsigned char));
 		{
 			unsigned char x;
-			getvalue(DATA, address, &x, ty->size);
+			getvalue(address, &x, ty->size);
 			if (x >= ' ' && x < 0177)
 				put("'%c'", x);
 			else
 				put("'\\%03o'", x&0377);
 		}
 		break;
-#undef xx
 	default:assert(0);
 	}
-#endif
 }
 
 static void prompt(void) {
@@ -369,16 +388,10 @@ static void printparam(const sym_symbol_ty sym, Nub_state_T *frame) {
 }
 	
 static void printframe(int verbose, Nub_state_T *frame, int frameno) {
-	int i, count;
-	sym_symbol_ty sym;
-	Seq_T syms = NULL;
-
 	put("%d\t%s(", frameno, frame->name);
 	if (verbose > 0) {	/* print parameters */
-		syms = _Sym_visible(frame->context);
-		count = Seq_length(syms);
-		for (i = 0; i < count; i++) {
-			sym = Seq_get(syms, i);
+		sym_symbol_ty sym = frame->context;
+		for ( ; sym != NULL && sym->uplink > 0; sym = _Sym_symbol(sym->module, sym->uplink))
 			if (sym->kind == sym_PARAM_enum) {
 				printparam(sym, frame);
 				break;
@@ -386,23 +399,18 @@ static void printframe(int verbose, Nub_state_T *frame, int frameno) {
 				put("void");
 				break;
 			}
-		}
 	}
 	put(")\n");
 	if (verbose > 1) {	/* print locals */
-		count = Seq_length(syms);
-		for (i = 0; i < count; i++) {
-			sym = Seq_get(syms, i);
+		sym_symbol_ty sym = frame->context;
+		for ( ; sym != NULL && sym->uplink > 0; sym = _Sym_symbol(sym->module, sym->uplink))
 			if (sym->kind == sym_LOCAL_enum) {
 				put("\t");
 				printsym(sym, frame);
 				put("\n");
-			} else if (sym->kind == sym_STATIC_enum)
+			} else
 				break;
-		}
 	}
-	if (syms != NULL)
-		Seq_free(&syms);
 }
 
 static void moveto(int n) {
@@ -569,7 +577,7 @@ static void p_cmd(char *line) {
 	}
 	for ( ; *p; p = skipwhite(p)) {
 		int n = 0;
-		Seq_T syms = _Sym_visible(focus.context);
+		sym_symbol_ty sym;
 		char *file = p, *name = p;
 		while (*p && !isspace(*p) && *p != ':')
 			p++;
@@ -581,35 +589,17 @@ static void p_cmd(char *line) {
 		} else
 			file = NULL;
 		*p++ = 0;
-		if (file == NULL)
-			while (Seq_length(syms) > 0) {
-				sym_symbol_ty sym = Seq_remlo(syms);
-				if (strcmp(sym->id, name) == 0) {
-					if (sym->kind == sym_STATIC_enum && sym->src->file)
-						put("%s:", sym->src->file);
-					printsym(sym, &focus);
-					put("\n");
-					n++;
-					break;
-				}
-			}
-		else
-			while (Seq_length(syms) > 0) {
-				sym_symbol_ty sym = Seq_remlo(syms);
-				if (sym->kind == sym_STATIC_enum && sym->src->file
-				&& strcmp(sym->src->file, file) == 0
-				&& strcmp(sym->id, name) == 0) {
-					put("%s:", file);
-					printsym(sym, &focus);
-					put("\n");
-					n++;
-				}
-			}
-		if (n == 0 && file != NULL)
+		sym = _Sym_lookup(file, name, focus.context);
+		if (sym != NULL) {
+			if (sym->kind == sym_STATIC_enum && sym->src->file)
+				put("%s:", sym->src->file);
+			printsym(sym, &focus);
+			put("\n");
+			n++;
+		} else if (file != NULL)
 			put("?Unknown identifier: %s:%s\n", file, name);
-		else if (n == 0)
+		else
 			put("?Unknown identifier: %s\n", name);
-		Seq_free(&syms);
 	}
 }
 
@@ -696,6 +686,11 @@ static void docmds(void) {
 			case '!': system(p); break;
 			case 'c': return;
 			case 'q': exit(EXIT_FAILURE);
+			case 't': {
+				extern int trace;
+				trace = atoi(p);
+				break;
+				}
 			default: put("?Unrecognized command: %s", line); break;
 			}
 		}               
