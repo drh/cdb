@@ -9,12 +9,12 @@
 
 <body>
 
-<table border="1" width="100%"
-style="background-color: rgb(255,255,0); font-family: Verdana, sans-serif; font-size: smaller"
-cellpadding="0" cellspacing="0">
+<table border="1" width="100%" bgcolor="#FFFF66"
+style="font-family: Verdana, sans-serif; font-size: smaller" cellpadding="0"
+cellspacing="0">
   <tr>
-    <td width="100%"><a title="Princeton CS Home Page" href="http://www.cs.princeton.edu/">Princeton
-    CS</a> <img src="images/arrow.gif" alt=":" WIDTH="13" HEIGHT="9"> <a
+    <td><a title="Princeton CS Home Page" href="http://www.cs.princeton.edu/">Princeton CS</a>
+    <img src="images/arrow.gif" alt=":" WIDTH="13" HEIGHT="9"> <a
     href="http://www.cs.princeton.edu/software/" title="Princeton CS Software">Software</a> <img
     src="images/arrow.gif" alt=":" WIDTH="13" HEIGHT="9"> <a
     href="http://www.cs.princeton.edu/software/lcc/">lcc, A Retargetable C Compiler</a> <img
@@ -85,6 +85,10 @@ remain unchanged, except for the type of the <code>fp</code> field, which become
 pointer to simplify address computations.</p>
 
 <h2>Implementation</h2>
+
+<p>This version of cdb works only with lcc 4.x, and it requires the <a
+href="http://www.cs.princeton.edu/software/cii/">C Interfaces and Implementations</a>
+(CII) library.</p>
 
 <p>While the nub interface changed little, the implementation changed significantly to
 accommodate changes in the symbol-table format, initialization code, and frame layout. The
@@ -200,7 +204,7 @@ implementation consists of the following files.</p>
   <tr>
     <td align="right"></td>
     <td></td>
-    <td><code><a href="pkg/src/">header files</a></code></td>
+    <td><a href="pkg/src/"><code>header files</code></a></td>
     <td></td>
     <td></td>
   </tr>
@@ -223,7 +227,7 @@ to a list of per-module, globals (including statics):</p>
 <pre>struct module {
 	union scoordinate *coordinates;
 	<strong>struct ssymbol **tails;</strong>
-        char **files;
+	char **files;
 	<strong>struct ssymbol *globals;
 	int length;
 	const char *constants;</strong>
@@ -255,7 +259,7 @@ structures remain unchanged from the original implementation.</p>
 	unsigned char scope;
 	unsigned char sclass;
 	<strong>struct module *module;</strong>
-        const struct stype *type;
+	const struct stype *type;
 	const struct ssymbol *uplink;
 };</pre>
 
@@ -353,7 +357,7 @@ code is generated at calls and returns.</p>
 <address>
   <a HREF="http://www.research.microsoft.com/~drh/">David Hanson</a> / <a
   HREF="mailto:drh@microsoft.com">drh@microsoft.com</a><br>
-  $Revision: 1.1 $ $Date: 1998/03/27 21:54:45 $ 
+  $Revision: 1.2 $ $Date: 1998/03/27 22:20:06 $ 
 </address>
 </body>
 </html>
