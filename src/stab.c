@@ -584,7 +584,9 @@ void zstab_init(int argc, char *argv[]) {
 	assert(IR);
 	inited = 1;
 	for (i = 1; i < argc; i++)
-		if (strcmp(argv[i], "-g4") == 0) {
+		if (strcmp(argv[i], "-v") == 0)
+			fprint(stderr, "%s %s\n", argv[0], rcsid);
+		else if (strcmp(argv[i], "-g4") == 0) {
 			IR->stabinit  = stabinit;
 			IR->stabend   = stabend;
 			IR->stabblock = 0;
@@ -593,6 +595,5 @@ void zstab_init(int argc, char *argv[]) {
 			IR->stabsym   = 0;
 			IR->stabtype  = 0;
 			glevel = 4;
-			break;
 		}
 }
