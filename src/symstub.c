@@ -6,9 +6,16 @@ static char rcsid[] = "$Id$";
 
 void _Sym_init(void) {}
 struct ssymbol *_Sym_symbol(void *sym) { return sym; }
-struct stype *_Sym_type(void *type) { return type; }
+const struct stype *_Sym_type(void *module, int index) {
+	struct module *m = module;
+
+	return (void *)(m->constants + index);
+}
+
 const char *_Sym_string(void *module, int index) {
-	assert(0);
+	struct module *m = module;
+
+	return (void *)(m->constants + index);
 }
 
 struct ssymbol *_Sym_find(const char *name, void *context) {

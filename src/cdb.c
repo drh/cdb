@@ -40,8 +40,8 @@ static void put(char *fmt, ...) {
 	va_end(ap);
 }
 
-static void tput(void *module, void *type) {
-	struct stype *ty = _Sym_type(type);
+static void tput(void *module, u4 type) {
+	const struct stype *ty = _Sym_type(module, type);
 	void *end = (char *)ty + ty->len;
 
 	switch (ty->op) {
@@ -53,7 +53,7 @@ static void tput(void *module, void *type) {
 		tput(module, ty->u.q.type);
 		break;
 	case POINTER: {
-		struct stype *rty = _Sym_type(ty->u.p.type);
+		const struct stype *rty = _Sym_type(module, ty->u.p.type);
 		if (rty->op == STRUCT)
 			put("struct %s ", _Sym_string(module, rty->u.s.tag));
 		else if (rty->op == UNION)
@@ -151,8 +151,8 @@ static void sput(char *address, int max) {
 	put("...");
 }
 
-static void vput(void *module, void *type, char *address) {
-	struct stype *ty = _Sym_type(type);
+static void vput(void *module, u4 type, char *address) {
+	const struct stype *ty = _Sym_type(module, type);
 	void *end = (char *)ty + ty->len;
 
 	if (address == NULL) {
@@ -170,7 +170,7 @@ static void vput(void *module, void *type, char *address) {
 		put(")");
 		getvalue(DATA, address, &p, ty->size);
 		put("0X%x", p);
-		if (p && _Sym_type(ty->u.p.type)->size == 1) {
+		if (p && _Sym_type(module, ty->u.p.type)->size == 1) {
 			put(" ");
 			sput(p, 80);
 		}
@@ -178,7 +178,7 @@ static void vput(void *module, void *type, char *address) {
 		}
 	case ARRAY: {
 		char prev[1024], buf[1024];
-		int size = _Sym_type(ty->u.p.type)->size;
+		int size = _Sym_type(module, ty->u.p.type)->size;
 		if (ty->u.a.nelems > 0 && size == 1) {
 			put("{");
 			sput(address, 80);
@@ -224,7 +224,7 @@ static void vput(void *module, void *type, char *address) {
 			if (ty->u.s.fields[i].u.offset < 0) {
 				unsigned buf, off;
 				int size, lsb;
-				struct stype *fty = _Sym_type(ty->u.s.fields[i].type);
+				const struct stype *fty = _Sym_type(module, ty->u.s.fields[i].type);
 				static union { int i; char endian; } little = { 1 };
 				if (little.endian) {
 					lsb  = ty->u.s.fields[i].u.le.lsb;
@@ -404,8 +404,8 @@ static char *parse(char *line, Nub_coord_T *src) {
 
 	*src = z;
 	if ((p = strchr(line, ':')) != NULL) {
-		*p++ = 0;
-		strncpy(src->file, line, sizeof src->file);
+		strncpy(src->file, line, p - line);
+		src->file[p-line] = '\0';
 	} else
 		p = line;
 	p = skipwhite(p);
@@ -515,13 +515,14 @@ static void r_cmd(char *line) {
 	}
 }
 
-static void v_cmd(char *line) {
+static void v_cmd(const char *line) {
 	struct ssymbol *sym;
 	void *context;
 
 	for (context = focus.context; context; context = sym->uplink) {
 		sym = _Sym_symbol(context);
-		if (sym->name && _Sym_type(sym->type)->op != FUNCTION && sym->sclass != TYPEDEF)
+		if (sym->name && _Sym_type(sym->module, sym->type)->op != FUNCTION
+		&& sym->sclass != TYPEDEF)
 			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
 				put("p %s:%s\n", _Sym_string(sym->module, sym->file),
 				    _Sym_string(sym->module, sym->name));

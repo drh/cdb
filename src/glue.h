@@ -3,17 +3,16 @@
 
 /* $Id$ */
 
-typedef unsigned short u2;
+typedef unsigned int u4;
 
 struct module {
+	u4 uid;
         union scoordinate *coordinates;
         char **files;
         struct ssymbol *link;
-	unsigned length;
-	const struct constant *constants;
+	u4 length;
+	const char *constants;
 };
-
-enum { cString=1, cType, cSymbol, cCoord };
 
 struct stype {
         unsigned short len;
@@ -21,17 +20,17 @@ struct stype {
         unsigned size;
         union {
                 struct {	/* pointers */
-                        struct stype *type;
+                        u4 type;
                 } p;
                 struct {	/* arrays */
-                        struct stype *type;
+                        u4 type;
                         unsigned nelems;
                 } a;
                 struct {	/* structs/unions */
-                        u2 tag;
+                        u4 tag;
                         struct {
-                                u2 name;
-                                struct stype *type;
+                                u4 name;
+                                u4 type;
                                 union offset {
                                         unsigned off;
                                         int offset;
@@ -41,20 +40,19 @@ struct stype {
                         } fields[1];
                 } s;
                 struct {	/* enums */
-                        u2 tag;
+                        u4 tag;
                         struct {
-                                u2 name;
+                                u4 name;
                                 int value;
                         } enums[1];
                 } e;
                 struct {	/* functions */
-                        struct stype *type;
-                        struct stype *args[1];
+                        u4 type;
+                        u4 args[1];
                 } f;
                 struct {	/* qualified types */
-                        struct stype *type;
-                } q;
-
+                        u4 type;
+		} q;
         } u;
 };
 
@@ -67,12 +65,12 @@ union scoordinate {
 struct ssymbol {
         int offset;
         void *address;
-        u2 name;
-        u2 file;
+        u4 name;
+        u4 file;
         unsigned char scope;
         unsigned char sclass;
 	struct module *module;
-        struct stype *type;
+        u4 type;
         struct ssymbol *uplink;
 };
 
@@ -82,23 +80,6 @@ struct sframe {
         struct module *module;
         struct ssymbol *tail;
         int ip;
-};
-
-struct constant {
-	unsigned char tag;
-	union {
-		struct {	/* cString */
-			u2 len;
-			char str[1];
-		} s;
-		struct {	/* cType */
-			u2 len;
-			struct stype type;
-		} t;
-		struct {	/* cSymbol */
-			struct ssymbol sym;
-		} y;
-	} u;
 };
 
 #endif

@@ -22,6 +22,7 @@ void _Cdb_startup(Nub_state_T state) {
 	for (i = 0; (m = _Nub_modules[i]) != NULL; i++) {
 		int j;
 		static Nub_coord_T z;
+		fprintf(stderr, "module %x\n", m->uid);
 		for (j = 1; m->files[j]; j++)
 			fprintf(stderr, " %s", m->files[j]);
 		if (m->link->uplink != NULL) {
@@ -29,8 +30,8 @@ void _Cdb_startup(Nub_state_T state) {
 			fprintf(stderr, ":");
 			for (p = m->link->uplink; p; p = p->uplink)
 				for (j = 1; m->files[j]; j++)
-					if (strcmp(p->file, m->files[j]) == 0) {
-						fprintf(stderr, " %s", p->name);
+					if (strcmp(m->constants + p->file, m->files[j]) == 0) {
+						fprintf(stderr, " %s %u", m->constants + p->name, p->type);
 						break;
 					}
 		} else
