@@ -32,7 +32,7 @@ $Blibnub$A:	$Bclient$O $Bnub$O $Bsymstub$O $Bcomm$O
 $Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@
 
 $Brcc$E:	$Bstab$O $Binits$O
-		$(LD) $(LDFLAGS) -o $@ $Bstab$O $Binits$O -lrcc
+		$(LD) $(LDFLAGS) -o $@ $Bstab$O $Binits$O -lrcc -lcii
 
 $Binits$O:	src/inits.c;	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/inits.c
 
