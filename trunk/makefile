@@ -1,10 +1,11 @@
 # $Id$
 CFLAGS	= -g
-INCLUDES= -I/usr/local/lib/cii/1/include -I/u/drh/pkg/lcc/4.0
-LIBS	= -lcii
+INCLUDES= -I/usr/local/lib/cii/1/include -I/u/drh/pkg/lcc/4.0/src
 LDFLAGS	= -g -L/u/drh/pkg/lcc/4.0/sparc-solaris
-HOSTFILE=etc/win32.c
-BUILDDIR=x86/win32
+HOSTFILE=etc/solaris.c
+BUILDDIR=sparc/solaris
+LIBS	= -lcii -lsocket -lnsl
+LIBCII	= -lcii
 E=
 O=.o
 A=.a
@@ -29,7 +30,7 @@ $Bhost$O:	$(HOSTFILE);		$(CC) -c $(CFLAGS) -o $@ $(HOSTFILE)
 $Blibnub$A:	$Bclient$O $Bnub$O $Bsymstub$O $Bcomm$O
 		ar ruv $@ $?
 
-$Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@
+$Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@; chmod +x $@
 
 $Brcc$E:	$Bstab$O $Binits$O
 		$(LD) $(LDFLAGS) -o $@ $Bstab$O $Binits$O -lrcc -lcii
@@ -72,11 +73,10 @@ $Bstab$O:	src/stab.c src/glue.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/stab.c
 
 stubtest:	wf.c lookup.c $Bcdb$O
-		env LCCINPUTS=".;h:/drh/lib/cii/1" \
-		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bcdb$O libcii.lib
+		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bcdb$O $(LIBCII)
 
 test:		wf.c lookup.c $Blibnub$A $Bcdb$E
-		$Blcc -Wo-lccdir=$(BUILDDIR) -Wl-map -v -Wo-g4 wf.c lookup.c
+		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c
 
 clean::
 		rm -f $B*$O
