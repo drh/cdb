@@ -6,7 +6,6 @@
 #include <string.h>
 #undef __STRING
 #include "fmt.h"
-#undef __P
 #include "symtab.h"
 #include "mem.h"
 #include "comm.h"
@@ -62,7 +61,7 @@ static void *coord2bpaddr(Nub_coord_T *src) {
 	return NULL;
 }
 
-static void setstate(Nub_state_T *state) {
+static void set_state(Nub_state_T *state) {
 	struct sframe frame;
 	sym_symbol_ty f;
 	sym_module_ty m;
@@ -97,12 +96,12 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 		switch (msg) {
 		case NUB_BREAK:
 			recvmesg(in, &state, sizeof state);
-			setstate(&state);
+			set_state(&state);
 			(*breakhandler)(state);
 			break;
 		case NUB_FAULT:
 			recvmesg(in, &state, sizeof state);
-			setstate(&state);
+			set_state(&state);
 			fault(state);
 			break;
 		case NUB_QUIT: return;
@@ -166,7 +165,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 	recvmesg(in, &args, sizeof args);
 	if (args.n >= 0)
 		memcpy(state, &args.state, sizeof args.state);
-	setstate(state);
+	set_state(state);
 	return args.n;
 }
 
