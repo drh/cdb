@@ -1,0 +1,244 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+
+<html>
+
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
+		<link title="David R. Hanson" href="http://www.research.microsoft.com/%7edrh/" rev="made">
+		<link href="style.css" type="text/css" rel="stylesheet" media="all">
+		<title>cdb 2.x</title>
+		<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
+	</head>
+
+	<body>
+		<p><span class="banner"><a href="http://www.cs.princeton.edu">Princeton CS</a> &raquo; <a href="http://www.cs.princeton.edu/software">Software</a> &raquo; <a href="http://www.cs.princeton.edu/software/lcc/">lcc, A Retargetable C Compiler</a> &raquo; <a href="index.html">cdb, A Machine-Independent Debugger</a> &raquo; cdb 2.x</span></p>
+		<h1>cdb 2.x</h1>
+		<h4><strong>David R. Hanson, Microsoft Research</strong></h4>
+		<h2>Introduction</h2>
+		<p>cdb is a machine-independent debugger for C programs compiled by <a href="http://www.cs.princeton.edu/software/lcc/">lcc</a> 4.x, a retargetable compiler for ISO Standard C. The latest version of cdb, <a href="ftp://ftp.cs.princeton.edu/pub/people/drh/cdb22.zip">version 2.2</a> (40KB ZIP file), differs in important ways from the implementation described in D. R. Hanson and M. Raghavachari, &quot;A Machine-Independent Debugger,&quot; <cite>Software&#151;Practice and Experience</cite> &nbsp;<strong>26</strong> (11), 1277-1299, Nov. 1996 (<a href="http://www.research.microsoft.com/%7edrh/pubs/cdb.pdf"><font size="-1">PDF</font></a> 350KB).</p>
+		<p>The remainder of this page describes the differences in sections that parallel the SPE paper. This version of cdb runs on the x86 under Windows NT 4.01 and on the Sparc under Solaris.</p>
+		<h2>Design</h2>
+		<p>Most of the nub interface (defined in <a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/nub.h">nub.h</a>) remains unchanged; in the following listing and in those below, boldface identifies the changes.</p>
+		<pre>typedef struct {
+	char file[32];
+	unsigned short x, y;
+} Nub_coord_T;
+
+typedef struct {
+	char name[32];
+	Nub_coord_T src;
+	<strong>char *</strong>fp;
+	void *context;
+} Nub_state_T;
+
+typedef void (*Nub_callback_T)(Nub_state_T state);
+
+extern struct module *_Nub_modules[];
+extern struct sframe *_Nub_tos;
+
+extern void _Nub_init(Nub_callback_T startup, Nub_callback_T fault);
+extern void _Nub_bp(<strong>int index</strong>);
+extern void _Nub_src(Nub_coord_T src,
+	void apply(int i, const Nub_coord_T *src, void *cl), void *cl);
+extern Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak);
+extern Nub_callback_T _Nub_remove(Nub_coord_T src);
+extern int _Nub_fetch(int space, const void *address, void *buf, int nbytes);
+extern int _Nub_store(int space, void *address, const void *buf, int nbytes);
+extern int _Nub_frame(int n, Nub_state_T *state);</pre>
+		<p>As before, breakpoints are described by single integer indices, but the implementation of <code>_Nub_bp</code> detailed below uses these indices to compute the symbol-table tail instead of the tail being passed as the second parameter to <code>_Nub_bp</code>. <code>Nub_state_T</code>s remain unchanged, except for the type of the <code>fp</code> field, which becomes a char pointer to simplify address computations.</p>
+		<h2>Implementation</h2>
+		<p>This version of cdb works only with lcc 4.x, and it requires the <a href="http://www.cs.princeton.edu/software/cii/">C Interfaces and Implementations</a> (CII) library.</p>
+		<p>While the nub interface changed little, the implementation changed significantly to accommodate changes in the symbol-table format, initialization code, and frame layout. The implementation consists of the following files.</p>
+		<div align="center">
+			<center>
+				<table border="0" cellspacing="0" cellpadding="0">
+					<tr>
+						<td align="right"><em>Lines</em></td>
+						<td><img src="images/dot_clear.gif" height="1" width="24"></td>
+						<td><em>File</em></td>
+						<td><img src="images/dot_clear.gif" height="1" width="24"></td>
+						<td><em>Purpose</em></td>
+					</tr>
+					<tr>
+						<td align="right">611</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/stab.c"><code>stab.c</code></a></td>
+						<td></td>
+						<td>symbol table and breakpoint code emitter</td>
+					</tr>
+					<tr>
+						<td align="right">36</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/prelink.sh"><code>prelink.sh</code></a></td>
+						<td></td>
+						<td>linking script</td>
+					</tr>
+					<tr>
+						<td align="right"><img src="images/dot_clear.gif" height="18" width="1"></td>
+						<td></td>
+						<td></td>
+						<td></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td align="right">730</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/cdb.c"><code>cdb.c</code></a></td>
+						<td></td>
+						<td>cdb user interface and command processor</td>
+					</tr>
+					<tr>
+						<td align="right">216</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/server.c"><code>server.c</code></a></td>
+						<td></td>
+						<td>debugger side of the 2-process nub</td>
+					</tr>
+					<tr>
+						<td align="right">61</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/comm.c"><code>comm.c</code></a></td>
+						<td></td>
+						<td>common communications code</td>
+					</tr>
+					<tr>
+						<td align="right">110</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/symtab.c"><code>symtab.c</code></a></td>
+						<td></td>
+						<td>symbol and type management</td>
+					</tr>
+					<tr>
+						<td align="right">56</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/symstub.c"><code>symstub.c</code></a></td>
+						<td></td>
+						<td>symtab.c stub for single-process nub</td>
+					</tr>
+					<tr>
+						<td align="right"><img src="images/dot_clear.gif" height="18" width="1"></td>
+						<td></td>
+						<td></td>
+						<td></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td align="right">238</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/nub.c"><code>nub.c</code></a></td>
+						<td></td>
+						<td>the nub</td>
+					</tr>
+					<tr>
+						<td align="right">203</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/client.c"><code>client.c</code></a></td>
+						<td></td>
+						<td>target side of the 2-process nub</td>
+					</tr>
+					<tr>
+						<td align="right">61</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/comm.c"><code>comm.c</code></a></td>
+						<td></td>
+						<td>common communication code (same as above)</td>
+					</tr>
+					<tr>
+						<td align="right">50</td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/clientstub.c"><code>clientstub.c</code></a></td>
+						<td></td>
+						<td>client.c stub for single-process nub</td>
+					</tr>
+					<tr>
+						<td align="right"><img src="images/dot_clear.gif" height="18" width="1"></td>
+						<td></td>
+						<td></td>
+						<td></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td align="right"></td>
+						<td></td>
+						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/"><code>header files</code></a></td>
+						<td></td>
+						<td></td>
+					</tr>
+				</table>
+			</center>
+		</div>
+		<p>In the two-process version, cdb is the server and the target (the program being debugged) is the client. server.c is the server side of the RPC channel and client.c is the client side. (These roles are reversed in Table 1 and Figure 6 in the paper.) cdb can run on a different machine than the target, but the machines must have the same type metrics and endianness.</p>
+		<p>The two-process version uses sockets instead of pipes.</p>
+		<h3>Symbol Tables</h3>
+		<p>The symbol table no longer uses &quot;link&quot; symbols; each module structure points to a list of per-module, globals (including statics):</p>
+		<pre>struct module {
+	union scoordinate *coordinates;
+	<strong>struct ssymbol **tails;</strong>
+	char **files;
+	<strong>struct ssymbol *globals;
+	int length;
+	const char *constants;</strong>
+};</pre>
+		<p>At start-time, all the modules are read into the symbol-table cache in the debugger so that the <code>globals</code> lists can be visited as necessary during symbol-table traversals. This design is more complicated that the original design, but it avoid writable symbol-table entries, which permits the symbol-table entries to be stored in read-only segments.</p>
+		<p>The <code>coordinates</code> and <code>tails</code> fields point to parallel arrays of packed source coordinates and symbol-table tail pointers. For a <code>module *m</code>, and stopping point index <code>i</code>, <code>m-&gt;coordinates[i]</code> is the source coordinate for that stopping point and <code>m-&gt;tails[i]</code> points to the corresponding symbol-table entry for the tail of the symbol table. <code>scoordinate</code> structures remain unchanged from the original implementation.</p>
+		<p>Symbol-table entries are defined by</p>
+		<pre>struct ssymbol {
+	<strong>union {
+		int value;
+		int offset;
+		void *address;
+	} u;</strong>
+	const char *name;
+	const char *file;
+	unsigned char scope;
+	unsigned char sclass;
+	<strong>struct module *module;</strong>
+	const struct stype *type;
+	const struct ssymbol *uplink;
+};</pre>
+		<p>The <code>u</code> field holds the value of enumeration identifiers, the frame offset for locals and parameters, or the address of&nbsp; globals and statics. The frame offset is the difference between the location of the local or parameter and the shadow stack frame. These offsets are now computed at compile-time; they are machine-independent, but they do depend on lcc's back-end technology, because they are lifted from structures managed by the back ends.</p>
+		<p>The <code>uplink</code> fields induce an inverted tree structure as shown in Figure 7 in the paper, but this tree does not include globals and statics. The globals lists are threaded through the <code>uplink</code> fields. Each symbol-table entry points to its module structure so that the global lists can be accessed.</p>
+		<p>For each module, all symbol-table entries, strings, and types are now emitted contiguously in a &quot;constants&quot; table pointed to by the <strong>constants</strong> field in a module; the <code>length</code> field gives the length in bytes of this table. This design permits the debugger to inhale the entire table the first time one of its entries is referenced, which reduces network traffic (i.e., the number of messages) and avoids the possibility that the table has been corrupted (which should not occur, because the table is emitted in a read-only segment).</p>
+		<h3>Breakpoints</h3>
+		<p>The coordinates field in a module points to an array of scoordinate structures, defined as in the original implementation:</p>
+		<pre>union scoordinate {
+        int i;
+        struct { unsigned int y:16,x:10,index:5,flag:1; } le;
+        struct { unsigned int flag:1,index:5,x:10,y:16; } be;
+};</pre>
+		<p>For stopping point <em>n</em> at expression <em>e</em>, lcc emits</p>
+		<blockquote>
+			<p><code>(module.coordinates[</code><em>n</em><code>].i &lt; 0 &amp;&amp; _Nub_bp(</code><em>n</em><code>), </code><em>e</em><code>)</code></p>
+		</blockquote>
+		<p>The implementation of <code>_Nub_bp</code> uses <code>module.tails[</code><em>n</em><code>]</code> to establish the symbol-table context before calling the breakpoint handler. This design eliminates one parameter from the call to <code>_Nub_bp</code> and thus saves space.</p>
+		<h3>Stack Frames</h3>
+		<p>Shadow stack frames are now defined as follows:</p>
+		<pre>struct sframe {
+        struct sframe *up, *down;
+        const char *func;
+        struct module *module;
+        int ip;
+};</pre>
+		<p>The tail field has been eliminated, because, given a <code>sframe</code> pointer <code>fp</code>, then appropriate symbol-table tail is <code>fp-&gt;module-&gt;tails[fp-&gt;ip]</code>. The nub assigns this value to the <code>context</code> field of the <code>Nub_state_T</code> value passed to the breakpoint handler.</p>
+		<p>The stadow stack frame is initialized as in the original implementation, but the initialization is simpler; for example, upon entry to <code>lookup</code> in <a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/lookup.c">lookup.c</a>, lcc emits only</p>
+		<pre>struct sframe tos;
+tos.down = _Nub_tos;
+tos.name = &quot;lookup&quot;;
+tos.module = &amp;_module__V8e0dade4;
+_Nub_tos = &amp;tos;</pre>
+		<p>The frame offsets for locals and parameters are computed and emitted at compile time. Strings like <code>&quot;lookup&quot;</code> above are stored in the constants table.</p>
+		<p>For each call expression <em>e</em>, lcc emits</p>
+		<blockquote>
+			<p><code>(tos.ip = </code><em>n</em><code>, </code><em>e</em><code>)</code></p>
+		</blockquote>
+		<p>where <em>n</em> is the stopping point number of the call. For each <code>return</code>&nbsp;<em>e</em>, lcc emits</p>
+		<blockquote>
+			<p><code>temp = </code><em>e</em><code>; _Nub_tos = tos.down; return temp;</code></p>
+		</blockquote>
+		<p>As mentioned in the paper (bottom of page 1296), this approach requires nub-aware versions of <code>setjmp</code> and <code>longjmp</code> that reset <code>_Nub_tos</code> correctly on non-local returns. The advantage of this approach is that less nub-specific code is generated at calls and returns.</p>
+		<hr>
+		<address><a href="http://www.research.microsoft.com/%7edrh/">David Hanson</a><br>
+			$Revision: 1.5 $ $Date: 2004/07/30 07:19:12 $</address>
+	</body>
+
+</html>
