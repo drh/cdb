@@ -12,7 +12,14 @@ case "$1" in
 *)      ofile=/tmp/$$.o ;;
 esac
 cfile=`expr "$ofile" : '\(.*\.\)'`c
-nm $* | awk '
+for i
+do
+	case "$i" in
+	-*|*.a|*.lib)	;;
+	*)	files="$files $i" ;;
+	esac
+done
+nm $files | awk '
 /_module__V/    {
         if (match($0, /_module__V[0-9a-f]*/)) {
                 m=substr($0, RSTART, RLENGTH)
