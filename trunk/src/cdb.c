@@ -186,11 +186,11 @@ static void vput(void *type, char *address) {
 		} else if (ty->u.a.nelems > 10 && size <= sizeof buf) {
 			int i;
 			put("{");
-			for (i = 0; i < ty->u.a.nelems - 1; ) {
+			for (i = 0; i < (int)ty->u.a.nelems - 1; ) {
 				put("\n [%d]=", i);
 				vput(ty->u.a.type, address);
 				getvalue(DATA, address, prev, size);
-				while (++i < ty->u.a.nelems - 1) {
+				while (++i < (int)ty->u.a.nelems - 1) {
 					address += size;
 					getvalue(DATA, address, buf, size);
 					if (memcmp(prev, buf, size) != 0)
@@ -204,7 +204,7 @@ static void vput(void *type, char *address) {
 			int i;
 			put("{");
 			vput(ty->u.a.type, address);
-			for (i = 1; i < ty->u.a.nelems; i++) {
+			for (i = 1; i < (int)ty->u.a.nelems; i++) {
 				put(",");
 				address = (char *)address + size;
 				vput(ty->u.a.type, address);
@@ -389,26 +389,6 @@ static void moveto(int n) {
 		put("?There is no frame %d\n", n);
 }
 
-static int equal(Nub_coord_T *s1, Nub_coord_T *s2) {
-	return (s1->y == s2->y || s1->y == 0 || s2->y == 0)
-	    && (s1->x == s2->x || s1->x == 0 || s2->x == 0)
-	    && (s1->file[0] == 0 || s2->file[0] == 0 || strcmp(s1->file, s2->file) == 0);
-}
-
-static void setbp(int i, Nub_coord_T *src, void *cl) {
-	struct cdb_src *p = cl;
-
-	p->n++;
-	if (p->n == 1)
-		p->first = *src;
-	else if (p->n == 2) {
-		put("Sweep and send one of the following commands:\n");
-		put("b %s:%d.%d\n", p->first.file, p->first.y, p->first.x);
-	}
-	if (p->n > 1)
-		put("b %s:%d.%d\n", src->file, src->y, src->x);
-}
-
 static char *skipwhite(char *p) {
 	while (*p && isspace(*p))
 		p++;
@@ -439,12 +419,34 @@ static char *parse(char *line, Nub_coord_T *src) {
 	return skipwhite(p);
 }
 
+static void setbp(int i, Nub_coord_T *src, void *cl) {
+	struct cdb_src *p = cl;
+
+	p->n++;
+	if (p->n == 1)
+		p->first = *src;
+	else if (p->n == 2) {
+		put("Sweep and send one of the following commands:\n");
+		put("b %s:%d.%d\n", p->first.file, p->first.y, p->first.x);
+	}
+	if (p->n > 1)
+		put("b %s:%d.%d\n", src->file, src->y, src->x);
+}
+
+static int equal(Nub_coord_T *s1, Nub_coord_T *s2) {
+	return (s1->y == s2->y || s1->y == 0 || s2->y == 0)
+	    && (s1->x == s2->x || s1->x == 0 || s2->x == 0)
+	    && (s1->file[0] == 0 || s2->file[0] == 0 || strcmp(s1->file, s2->file) == 0);
+}
+
 static void b_cmd(char *line) {
 	Nub_coord_T src;
 	struct cdb_src z;
 
-	if (*parse(line, &src))
+	if (*parse(line, &src)) {
 		put("?Unrecognized coordinate: %s", line);
+		return;
+	}
 	z.n = 0;
 	_Nub_src(src, setbp, &z);
 	if (z.n == 0)
@@ -627,7 +629,7 @@ static void docmds(void) {
 		if (isalpha(c) && isalpha(*p))
 			put("?Unrecognized command: %s", line);
 		else {
-			p = skipwhite(line);
+			p = skipwhite(p);
 			switch (c) {
 			case   0: break;
 			case 'b': b_cmd(p); break;
@@ -677,13 +679,12 @@ static void onbreak(Nub_state_T state) {
 }
 
 void _Cdb_startup(Nub_state_T state) {
-	in = fopen("/dev/tty", "r");
-	if (in == NULL)
-		in = stdin;
+	in = stdin;
 	out = stderr;
 	focus = state;
 	frameno = -1;
 	brkpt = NULL;
+	_Sym_init();
 	docmds();
 }
 
