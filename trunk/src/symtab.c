@@ -1,104 +1,97 @@
 #include <assert.h>
 #include <stdlib.h>
-#include <string.h>
 #include "mem.h"
-#include "arena.h"
+#include "seq.h"
 #include "symtab.h"
-#include "nub.h"
 
 static char rcsid[] = "$Id$";
 
-enum { SYM=0 };
-static struct mod {
-	struct module m;
-	void *module;
-	char *constants;
-	struct mod *link;
-} *modules;
-static Arena_T arena;
+Seq_T modules;
+
+static void inhale(const char *file) {
+	FILE *f = fopen(file, "r");
+
+	modules = Seq_new(0);
+	if (f != NULL) {
+		Fmt_fprint(stderr, "inhaling");
+		while (!feof(f)) {
+			sym_module_ty pickle = sym_read_module(f);
+			Fmt_fprint(stderr, " %s[%d]", pickle->file, pickle->uname);
+			Seq_addhi(modules, pickle);
+		}
+		Fmt_fprint(stderr, "\n");
+	}
+}
 
 void _Sym_init(struct module *mods[]) {
-	if (arena == NULL)
-		arena = Arena_new();
-	Arena_free(arena);
-	modules = NULL;
-	if (mods != NULL)
-		for (;; mods++) {
-			struct module *module;
-			struct mod *m;
-			int n = _Nub_fetch(SYM, mods, &module, sizeof module);
-			assert(n == sizeof module);
-			if (module == NULL)
-				break;
-			m = Arena_alloc(arena, sizeof *m, __FILE__, __LINE__);
-			n = _Nub_fetch(SYM, module, &m->m, sizeof m->m);
-			assert(n == sizeof m->m);
-			m->module = module;
-			m->constants = NULL;
-			m->link = modules;
-			modules = m;
-		}
+	inhale("sym.pickle");
 }
 
-static const void *resolve(const char *addr) {
-	struct mod *m;
+const sym_module_ty _Sym_module(int uname) {
+	int i, count = Seq_length(modules);
 
-	assert(addr);
-	for (m = modules; m != NULL; m = m->link)
-		if (addr >= m->m.constants && addr < m->m.constants + m->m.length)
-			break;
-	assert(m);
-	if (m->constants == NULL) {
-		int n;
-		m->constants = Arena_alloc(arena, m->m.length, __FILE__, __LINE__);
-		n = _Nub_fetch(SYM, (void *)m->m.constants, m->constants, m->m.length);
-		assert(n == m->m.length);
+	for (i = 0; i < count; i++) {
+		sym_module_ty m = Seq_get(modules, i);
+		if (m->uname == uname)
+			return m;
 	}
-	return m->constants + (addr - m->m.constants);
-}	
-
-const char *_Sym_string(const void *str) {
-	return resolve(str);
+	return NULL;
 }
 
-const struct stype *_Sym_type(const void *type) {
+static const void *resolve(int uname, int uid) {
+	sym_module_ty m = Seq_module(uname);
+
+	if (m != NULL) {
+		int i, count = Seq_length(m->items);
+		for (i = 0; i < count; i++) {
+			sym_item_ty item = Seq_get(m->items, i);
+			if (item->uid == uid)
+				switch (item->kind) {
+				case sym_Symbol_enum: return item->v.sym_Symbol.symbol;
+				case sym_Type_enum:   return item->v.sym_Type.type;
+				default: assert(0);
+				}
+		}
+	}
+	return NULL;
+}
+
+const sym_type_ty _Sym_type(int uname, int uid) {
+	return resolve(uname, uid);
+}
+
+const struct stype *_Sym_type(int uname, int uid) {
 	return resolve(type);
 }
 
-const struct ssymbol *_Sym_symbol(const void *sym) {
-	if (sym == NULL)
-		return NULL;
-	else
-		return resolve(sym);
-}
-
 struct _Sym_iterator {
-	const struct ssymbol *sym;
-	void *module;
-	struct mod *m;
+	const sym_symbol_ty sym;
+	int module, global;
 };
 
-struct _Sym_iterator *_Sym_iterator(const void *context) {
+struct _Sym_iterator *_Sym_iterator(int uname, int uid) {
 	struct _Sym_iterator *it;
 
 	NEW(it);
-	it->sym = _Sym_symbol(context);
-	it->m = modules;
+	it->sym = _Sym_symbol(uname, uid);
+	it->module = 0;
+	it->global = 0;
 	if (it->sym != NULL)
-		it->module = it->sym->module;
+		it->uname = it->sym->module;
 	else
-		it->module = NULL;
+		it->uname = 0;
 	return it;
 }
 
-const struct ssymbol *_Sym_next(struct _Sym_iterator *it) {
+const sym_symbol_ty _Sym_next(struct _Sym_iterator *it) {
 	assert(it);
 	for (;;)
 		if (it->sym != NULL) {
-			const struct ssymbol *sym = it->sym;
-			it->sym = _Sym_symbol(sym->uplink);
+			const sym_symbol_ty sym = it->sym;
+			it->sym = _Sym_symbol(sym->module, sym->uplink);
 			return sym;
 		} else {
+			it->module = 0;
 			while (it->m != NULL && it->m->module == it->module)
 				it->m = it->m->link;
 			if (it->m != NULL) {

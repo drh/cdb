@@ -14,38 +14,6 @@ static int frameno;
 static struct sframe *fp;
 static struct { char *start, *end; } text, data, stack;
 
-static int unpack(union scoordinate w, int *i, unsigned short *x, unsigned short *y) {
-	int f;
-	static union { int i; char endian; } little = { 1 };
-
-	if (little.endian) {
-		*i = w.le.index;
-		*x = w.le.x + 1;
-		*y = w.le.y;
-		f = w.le.flag;
-	} else {
-		*i = w.be.index;
-		*x = w.be.x + 1;
-		*y = w.be.y;
-		f = w.be.flag;
-	}
-	return f;
-}
-
-static void setcoord(union scoordinate w, struct module *modp, Nub_coord_T *src) {
-	int i;
-
-	unpack(w, &i, &src->x, &src->y);
-	strncpy(src->file, modp->files[i], sizeof src->file);
-}
-
-static void set_state(struct sframe *fp, Nub_state_T *state) {
-	strncpy(state->name, fp->func, sizeof state->name);
-	setcoord(fp->module->coordinates[fp->ip], fp->module, &state->src);
-	state->fp = (void *)fp;
-	state->context = fp->module->tails[fp->ip];
-}
-
 static void movedown(void) {
 	if (fp->down) {
 		fp->down->up = fp;
@@ -59,33 +27,6 @@ static void moveup(void) {
 		fp = fp->up;
 		frameno--;
 	}
-}
-
-static int equal(Nub_coord_T *src, union scoordinate w, char *files[]) {
-	int i;
-	unsigned short x, y;
-
-	unpack(w, &i, &x, &y);
-	/*
-	Two coordinates are `equal' if their
-	nondefault components are equal.
-	*/
-	return (src->y == 0 || src->y == y)
-	    && (src->x == 0 || src->x == x)
-	    && (src->file[0] == 0 || files[i] && strcmp(src->file, files[i]) == 0);
-}
-
-static union scoordinate *src2cp(Nub_coord_T src) {
-	int i;
-
-	for (i = 0; _Nub_modules[i]; i++) {
-		char **files = _Nub_modules[i]->files;
-		union scoordinate *cp = &_Nub_modules[i]->coordinates[1];
-		for ( ; cp->i; cp++)
-			if (equal(&src, *cp, files))
-				return cp;
-	}
-	return NULL;
 }
 
 /* update - update memory maps */
@@ -133,7 +74,7 @@ void _Nub_bp(int index) {
 	_Nub_tos->ip = index;
 	fp = _Nub_tos;
 	fp->up = NULL;
-	set_state(fp, &state);
+	state.fp = (char *)fp;
 	frameno = 0;
 	update();
 	breakhandler(state);
@@ -141,30 +82,12 @@ void _Nub_bp(int index) {
 
 Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
 	Nub_callback_T prev = breakhandler;
-	static union { int i; char c; } x = { 1 };
-	union scoordinate *cp = src2cp(src);
 
-	if (cp == NULL)
-		return NULL;
-	if (onbreak)
-		breakhandler = onbreak;
-	if (x.c == 1)
-		cp->le.flag = 1;
-	else
-		cp->be.flag = 1;
+	breakhandler = onbreak;
 	return prev;
 }
 
 Nub_callback_T _Nub_remove(Nub_coord_T src) {
-	static union { int i; char endian; } little = { 1 };
-	union scoordinate *cp = src2cp(src);
-
-	if (cp == NULL)
-		return NULL;
-	if (little.endian == 1)
-		cp->le.flag = 0;
-	else
-		cp->be.flag = 0;
 	return breakhandler;
 }
 
@@ -209,25 +132,8 @@ int _Nub_frame(int n, Nub_state_T *state) {
 		while (n > frameno && fp->down)
 			movedown();
 	}
-	set_state(fp, state);
+	state->fp = (char *)fp;
 	return frameno;
-}
-
-void _Nub_src(Nub_coord_T src,
-	void apply(int i, const Nub_coord_T *src, void *cl), void *cl) {
-	int i, n = 0;
-
-	assert(apply);
-	for (i = 0; _Nub_modules[i]; i++) {
-		char **files = _Nub_modules[i]->files;
-		union scoordinate *cp = &_Nub_modules[i]->coordinates[1];
-		for ( ; cp->i; cp++)
-			if (equal(&src, *cp, files)) {
-				Nub_coord_T z;
-				setcoord(*cp, _Nub_modules[i], &z);
-				apply(n, &z, cl);
-			}
-	}
 }
 
 int mAiN(int argc, char *argv[], char *envp[]) {

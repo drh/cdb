@@ -2,7 +2,7 @@
 -- $Id$
 module sym {
 
-module	= (int name,int nuids,item* items,int* globals,spoint* spoints)
+module	= (identifier file,int uname,int nuids,item* items,int globals,spoint* spoints)
 
 spoint	= (coordinate src,int tail)
 
@@ -14,7 +14,8 @@ coordinate	= (identifier file,int x,int y)
 
 symbol	= STATIC(int index)
 	| TYPEDEF
-	| AUTO(int offset)
+	| LOCAL(int offset)
+	| PARAM(int offset)
 	| ENUMCONST(int value)
 	attributes(identifier id,int uid,int module,coordinate src,
 		int type,int uplink)

@@ -27,7 +27,7 @@ all::		libnub cdb rcc lcc prelink
 prelink:	$Bprelink.sh
 lcc:		$Blcc$E
 rcc:		$Brcc$E
-libnub:		$Blibnub$A $Bclientstub$O
+libnub:		$Blibnub$A
 cdb:		$Bcdb$E
 
 $Blcc$E:	$Blcc$O $Bhost$O;	$(CC) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O

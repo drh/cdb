@@ -180,17 +180,18 @@ static int symboluid(const Symbol p) {
 			Seq_length(statics));
 		sym->type = typeuid(p->type);
 		Seq_addhi(statics, p);
-		Seq_addhi(pickle->globals, to_generic_int(uid));
 		break;
 	default:
-		if (p->scope >= PARAM)
-			sym = sym_AUTO(p->name, uid, uname, NULL, 0, 0,
+		if (p->scope == PARAM)
+			sym = sym_PARAM(p->name, uid, uname, NULL, 0, 0,
+				p->x.offset);
+		else if (p->scope >= LOCAL)
+			sym = sym_LOCAL(p->name, uid, uname, NULL, 0, 0,
 				p->x.offset);
 		else {
 			sym = sym_STATIC(p->name, uid, uname, NULL, 0, 0,
 				Seq_length(statics));
 			Seq_addhi(statics, p);
-			Seq_addhi(pickle->globals, to_generic_int(uid));
 		}
 		sym->type = typeuid(p->type);
 	}
@@ -217,6 +218,7 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		Symbol p;
 		for (p = symroot; p != NULL; p = up(p->up))
 			symboluid(p);
+		pickle->globals = symboluid(symroot);
 	}
 	{	/* emit addresses of top-level and static symbols */
 		int i, lc = 0, count = Seq_length(statics);
@@ -252,7 +254,7 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 	}
 #undef printit
 	{	/* complete and write symbol-table pickle */
-		FILE *f = fopen("sym.pickle", "wb");
+		FILE *f = fopen("sym.pickle", "ab");
 		sym_write_module(pickle, f);
 		fclose(f);
 	}
@@ -315,7 +317,7 @@ static void entry_hook(void *cl, Symbol cfunc) {
 	addfield("up",    voidptype);
 	addfield("down",  voidptype);
 	addfield("func",  inttype);
-	addfield("module",voidptype);
+	addfield("module",inttype);
 	addfield("ip",    inttype);     
 #undef addfield
 	ty->size = roundup(ty->size, ty->align);
@@ -331,7 +333,7 @@ static void entry_hook(void *cl, Symbol cfunc) {
 #define set(name,e) walk(asgntree(ASGN,field(lvalue(idtree(tos)),string(#name)),(e)),0,0)
 	set(down,       idtree(nub_tos));
 	set(func,       cnsttree(inttype, symboluid(cfunc)));
-	set(module,     idtree(module));
+	set(module,     cnsttree(inttype, uname));
 #undef set
 	walk(asgn(nub_tos, lvalue(idtree(tos))), 0, 0);
 	foreach(identifiers, PARAM, setoffset, tos);
@@ -389,7 +391,7 @@ static void stabinit(char *file, int argc, char *argv[]) {
 	else
 		leader = " #";  /* it's a MIPS or ALPHA */
 	uname = time(NULL)<<7|getpid();
-	pickle = sym_module(uname, 1, Seq_new(0), Seq_new(0), Seq_new(0));
+	pickle = sym_module(file, uname, 1, Seq_new(0), 0, Seq_new(0));
 	locals = Seq_new(0);
 	statics = Seq_new(0);
 	uidTable = Table_new(0, 0, 0);
