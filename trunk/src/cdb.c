@@ -709,14 +709,9 @@ static void whereis(Nub_state_T *state) {
 }
 		
 static void onbreak(Nub_state_T state) {
-	int i;
-
-	for (i = 0; i < nbpts; i++)
-		if (equal(&state.src, &bkpts[i])) {
-			put("stopped ");
-			whereis(&state);
-			docmds();
-		}
+	put("stopped ");
+	whereis(&state);
+	docmds();
 }
 
 void _Cdb_startup(Nub_state_T state) {
