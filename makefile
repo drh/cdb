@@ -2,13 +2,13 @@
 CC=lcc
 CFLAGS	= -g
 # Configuration:
-# SRCDIR	root of the lcc 4.0 distribution
+# SRCDIR	root of the lcc 4.1 distribution
 # INCLUDES	-I options for CII headers and lcc 4.0 headers
 # HOSTFILE	path to an lcc driver back end that supports cdb
-# BUILDDIR	the lcc 4.0 build directory
+# BUILDDIR	the lcc 4.1 build directory
 # LDFLAGS	-L options for librcc.a (in the lcc build directory)
 # LIBS		libraries, including socket and network libraries
-SRCDIR	= /u/drh/pkg/lcc/4.0
+SRCDIR	= /u/drh/pkg/lcc/4.1
 INCLUDES= -I/usr/local/lib/cii/1/include -I$(SRCDIR)/src
 HOSTFILE=etc/solaris.c
 BUILDDIR= $(SRCDIR)/sparc-solaris
