@@ -5,7 +5,6 @@
 
 struct module {
 	unsigned int uname;
-	char *bpflags;
 	void **addresses;
 };
 

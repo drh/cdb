@@ -51,7 +51,7 @@ static void *coord2bpaddr(Nub_coord_T *src) {
 				for (i = 0; i < count; i++) {
 					struct module *m = Seq_get(modules, i);
 					if (pickle->uname == m->uname)
-						return m->bpflags + j;
+						return (char *)NULL + j;
 				}
 				assert(0);
 				return NULL;
@@ -114,7 +114,7 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
 	Nub_callback_T prev = breakhandler;
 	char flag = 1;
-	int n = _Nub_store(0, coord2bpaddr(&src), &flag, 1);
+	int n = _Nub_store(1, coord2bpaddr(&src), &flag, 1);
 
 	assert(n == 1);
 	breakhandler = onbreak;
@@ -123,7 +123,7 @@ Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
 
 Nub_callback_T _Nub_remove(Nub_coord_T src) {
 	char flag = 0;
-	int n = _Nub_store(0, coord2bpaddr(&src), &flag, 1);
+	int n = _Nub_store(1, coord2bpaddr(&src), &flag, 1);
 
 	assert(n == 1);
 	return breakhandler;
