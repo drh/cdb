@@ -1,0 +1,57 @@
+This hierarchy holds the implementation of cdb, debugger described
+in D. R. Hanson and M. Raghavachari, "A Machine-Independent
+Debugger," Software--Practice and Experience 26 (11), 1277-1299, Nov.
+1996; this paper is available at
+http://www.research.microsoft.com/~drh/pubs/cdb.pdf.
+
+Contents
+~~~~~~~~
+
+Differences
+~~~~~~~~~~~
+The list below summarizes the differences between this implementation
+of cdb and the published description in "A Machine-Independent
+Debugger".
+
++ This version works only with lcc 4.0.
+
++ A bare "b" command lists the current breakpoints as "r" commands.
+
++ The 2-process version, cdb runs as a server and the program being
+debugged is the client.  src/server.c is the server side of the RPC
+channel and src/client.c is the client side. (These roles are
+reversed in Table 1 and Figure 6 in the paper.)
+
++ The 2-process version uses sockets instead of pipes.
+
++ Strings, types, and symbol-table entries are stored in a contiguous
+portion of read-only memory (the LIT segment).
+
++ Symbol-table entries for locals are initialized with the frame
+offsets at compile time, which means src/stab.c depends on lcc's back
+ends. This change permits the symbol-table entries to be stored in
+read-only memory.
+
++ Modules hold pointers to coordinates, symbol-table tails, files,
+globals, and the list of strings, types, and symbol-table entries.
+Symbol-table entries point back to their module. Only the array of
+coordinates is stored in writable memory.
+
++ There is no link symbol; a module point to the list of its globals.
+src/symtab.c includes functions that iterate over all the visible
+symbols in all modules.
+
++ _Nub_bp takes only one argument, the index of the stopping point
+from which it computes the symbol-table tail..
+
++ Shadow frames no longer include symbol-table tail fields, because
+the tail is computed by the number from the stopping point number. 
+
++ cdbld has been replaced by src/prelink.sh, which is run before the
+linker, but does not replace it.
+
+Installation
+~~~~~~~~~~~~
+
+David R. Hanson / drh@microsoft.com / http://www.research.microsoft.com/~drh/
+$Id$
