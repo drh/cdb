@@ -77,6 +77,8 @@ static void setstate(Nub_state_T *state) {
 	assert(m);
 	s = Seq_get(m->spoints, frame.ip);
 	assert(s);
+	strncpy(state->src.file, s->src->file, sizeof state->src.file);
+	state->src.x = s->src->x; state->src.y = s->src->y;
 	state->context = _Sym_symbol(frame.module, s->tail);
 }
 
@@ -95,10 +97,12 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 		switch (msg) {
 		case NUB_BREAK:
 			recvmesg(in, &state, sizeof state);
+			setstate(&state);
 			(*breakhandler)(state);
 			break;
 		case NUB_FAULT:
 			recvmesg(in, &state, sizeof state);
+			setstate(&state);
 			fault(state);
 			break;
 		case NUB_QUIT: return;
@@ -162,6 +166,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 	recvmesg(in, &args, sizeof args);
 	if (args.n >= 0)
 		memcpy(state, &args.state, sizeof args.state);
+	setstate(state);
 	return args.n;
 }
 
@@ -170,7 +175,7 @@ void _Nub_src(Nub_coord_T src,
 	int i, k = 0, count = Seq_length(pickles);
 
 	for (i = 0; i < count; i++) {
-		sym_module_ty pickle = Seq_get(modules, i);
+		sym_module_ty pickle = Seq_get(pickles, i);
 		int j, n = Seq_length(pickle->spoints);
 		for (j = 0; j < n; j++) {
 			sym_spoint_ty s = Seq_get(pickle->spoints, j);

@@ -32,7 +32,7 @@ type	= INT
 	| ENUM(identifier tag,enum* ids)
 	| STRUCT(identifier tag,field* fields)
 	| UNION(identifier tag,field* fields)
-	| ARRAY(int type)
+	| ARRAY(int type,int nelems)
 	| FUNCTION(int type,int* formals)
 	| CONST(int type)
 	| VOLATILE(int type)

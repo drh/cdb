@@ -11,40 +11,39 @@ Seq_T pickles, modules;
 static void inhale(const char *file) {
 	FILE *f = fopen(file, "rb");
 
-	pickles = Seq_new(0);
 	if (f != NULL) {
 		int c;
-		Fmt_fprint(stderr, "inhaling");
-		while ((c = fgetc(f)) != EOF) {
-			sym_module_ty pickle;
-			ungetc(c, f);
-			pickle = sym_read_module(f);
-			Fmt_fprint(stderr, " %s[%d]", pickle->file, pickle->uname);
-			Seq_addhi(pickles, pickle);
-		}
-		Fmt_fprint(stderr, "\n");
-	}
+		sym_module_ty pickle;
+		fprintf(stderr, "inhaling");
+		pickle = sym_read_module(f);
+		fprintf(stderr, " %s[%d]\n", pickle->file, pickle->uname);
+		Seq_addhi(pickles, pickle);
+		fclose(f);
+	} else
+		fprintf(stderr, "!can't inhale %s\n", file);
 }
 
 void _Sym_init(struct module *mods[]) {
 	int i;
 
+	pickles = Seq_new(0);
 	modules = Seq_new(0);
-	Fmt_fprint(stderr, "fetching module");
 	for (i = 0; ; i++) {
+		char name[25];
 		struct module *m, *mod;
 		int n = _Nub_fetch(0, &mods[i], &m, sizeof m);
 		assert(n == sizeof m);
 		if (m == NULL)
 			break;
 		NEW(mod);
+		fprintf(stderr, "fetching module");
 		n = _Nub_fetch(0, m, mod, sizeof *mod);
 		assert(n == sizeof *mod);
-		Fmt_fprint(stderr, " [%d]", mod->uname);
+		fprintf(stderr, " [%d] ", mod->uname);
 		Seq_addhi(modules, mod);
+		sprintf(name, "%d.pickle", mod->uname);
+		inhale(name);
 	}
-	Fmt_fprint(stderr, "\n");
-	inhale("sym.pickle");
 }
 
 void *_Sym_address(sym_symbol_ty sym) {
@@ -100,6 +99,23 @@ const sym_symbol_ty _Sym_symbol(int uname, int uid) {
 const sym_type_ty _Sym_type(int uname, int uid) {
 	return resolve(uname, uid);
 }
+
+const sym_symbol_ty _Sym_lookup(const char *file, const char *name, sym_symbol_ty sym) {
+	int i, count;
+
+	for ( ; sym != NULL && sym->uplink > 0; sym = _Sym_symbol(sym->module, sym->uplink))
+		if (strcmp(name, sym->id) == 0 && (file == NULL || strcmp(file, sym->src->file) == 0))
+			return sym;
+	count = Seq_length(pickles);
+	for (i = 0; i < count; i++) {
+		sym_module_ty pickle = Seq_get(pickles, i);
+		sym = _Sym_symbol(pickle->uname, pickle->globals);
+		for ( ; sym != NULL && sym->uplink > 0; sym = _Sym_symbol(sym->module, sym->uplink))
+			if (strcmp(name, sym->id) == 0 && (file == NULL || strcmp(file, sym->src->file) == 0))
+				return sym;
+	}
+	return NULL;
+}	
 
 Seq_T _Sym_visible(sym_symbol_ty sym) {
 	int i, count = Seq_length(pickles), uname = 0;

@@ -54,13 +54,13 @@ CDBOBJS=$Bserver$O \
 $Bcdb$E:	$(CDBOBJS)
 		$(CC) $(LDFLAGS) -o $@ $(CDBOBJS) $(LIBS)
 
-$Bcdb$O:	src/cdb.c src/server.h src/glue.h src/nub.h src/symtab.h
+$Bcdb$O:	src/cdb.c src/server.h src/glue.h src/nub.h src/symtab.h $Bsym.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/cdb.c
 
 $Bcomm$O:	src/comm.c src/comm.h src/server.h
 		$(CC) -c $(CFLAGS) -o $@ src/comm.c
 
-$Bserver$O:	src/server.c src/comm.h src/glue.h src/nub.h src/server.h
+$Bserver$O:	src/server.c src/comm.h src/glue.h src/nub.h src/server.h src/symtab.h $Bsym.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/server.c
 
 $Bclient$O:	src/client.c src/comm.h src/glue.h src/nub.h src/server.h

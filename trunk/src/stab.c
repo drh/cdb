@@ -101,13 +101,17 @@ static int typeuid(const Type ty) {
 #undef xx
 #define xx(op) case op: type = sym_##op(ty->size, ty->align, typeuid(ty->type)); break
 	xx(POINTER);
-	xx(ARRAY);
 	xx(CONST);
 	xx(VOLATILE);
 #undef xx
-case CONST+VOLATILE:
-	type = sym_CONST(ty->size, ty->align, typeuid(ty->type));
-	break;
+	case ARRAY:
+		type = sym_ARRAY(ty->size, ty->align, typeuid(ty->type), 0);
+		if (ty->type->size > 0)
+			type->v.sym_ARRAY.nelems = ty->size/ty->type->size;
+		break;
+	case CONST+VOLATILE:
+		type = sym_CONST(ty->size, ty->align, typeuid(ty->type));
+		break;
 	case ENUM: {
 		list_ty ids = Seq_new(0);
 		int i;
@@ -254,7 +258,7 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 	}
 #undef printit
 	{	/* complete and write symbol-table pickle */
-		FILE *f = fopen("sym.pickle", "ab");
+		FILE *f = fopen(stringf("%d.pickle", uname), "wb");
 		sym_write_module(pickle, f);
 		fclose(f);
 	}
@@ -293,7 +297,7 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 	Seq_addhi(pickle->spoints, sym_spoint(sym_coordinate(cp->file, cp->x, cp->y), tail()));
 }
 
-/* setoffset - emits code to set the offset field for p */
+/* setoffset - remember p for later adjustment of its offset */
 static void setoffset(Symbol p, void *tos) {
 	Seq_addhi(locals, p);
 	p->addressed = 1;
@@ -351,7 +355,14 @@ static void stabfend(Symbol cfunc, int lineno) {
 
 	for ( ; count > 0; count--) {
 		Symbol p = Seq_remlo(locals);
+		sym_symbol_ty sym = Table_get(uidTable, p);
 		p->x.offset -= tos->x.offset;
+		assert(sym);
+		switch (sym->kind) {
+		case sym_LOCAL_enum: sym->v.sym_LOCAL.offset = p->x.offset; break;
+		case sym_PARAM_enum: sym->v.sym_PARAM.offset = p->x.offset; break;
+		default: assert(0);
+		}
 	}
 	tos = NULL;
 }
