@@ -27,12 +27,13 @@ static Symbol link;
 static Symbol nub_bp;
 static Symbol nub_tos;
 static Symbol tos;
-static struct string {
-	char *str;
-	uint16 index;
-	struct string *link;
-} *stringlist, **laststring = &stringlist;
-static Table_T strings;
+static struct cnst {
+	unsigned char tag;
+	u2 index;
+	void *ptr;
+	struct cnst *link;
+} *constantList, **last = &constantList;
+static Table_T constantTable;
 
 /* comment - emits an assembly language comment */
 static void comment(char *fmt, ...) {
@@ -81,18 +82,19 @@ static int emit_value(int lc, Type ty, ...) {
 
 /* emit_string - emits the index of a string */
 static int emit_string(int lc, char *str) {
+	assert(str);
 	if (str) {
-		struct string *p = Table_get(strings, str);
+		struct cnst *p = Table_get(constantTable, str);
 		if (p == NULL) {
-			static int index = 1;
+			static int index;
 			NEW(p, PERM);
-			p->str = str;
-			p->index = index;
-			index += strlen(str) + 1;
+			p->tag = cString;
+			p->ptr = str;
+			p->index = index++;
 			p->link = NULL;
-			*laststring = p;
-			laststring = &p->link;
-			Table_put(strings, str, p);
+			*last = p;
+			last = &p->link;
+			Table_put(constantTable, str, p);
 		}
 		return emit_value(lc, unsignedshort, p->index);
 	} else
@@ -294,8 +296,8 @@ static void emit_type(Type ty) {
 
 /* stabend - emits the symbol table */
 static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp[], Symbol *ignore) {
-	int nstrings;
-	Symbol types, files, strs;
+	int nconstants = 0;
+	Symbol types, files, consts;
 
 	{	/* emit symbols */
 		Symbol p, *allsyms = ltov(&symbollist, PERM);
@@ -371,18 +373,29 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		for (i = 0; alltypes[i] != NULL; i++)
 			emit_type(alltypes[i]);
 	}
-	{	/* emit strings */
-		struct string *p;
-		strs = genident(STATIC, array(chartype, 1, 0), GLOBAL);
-		comment("strings:\n");
-		defglobal(strs, LIT);
-		(*IR->defstring)(1, "");
-		nstrings = 1;
-		for (p = stringlist; p; p = p->link) {
-			int len = strlen(p->str);
-			(*IR->defstring)(len + 1, p->str);
-			nstrings += len + 1;
+	{	/* emit constants */
+		int lc = 0;
+		struct cnst *p;
+		consts = genident(STATIC, array(chartype, 1, 0), GLOBAL);
+		comment("constants:\n");
+		defglobal(consts, LIT);
+		for (p = constantList; p; p = p->link) {
+			int len;
+			switch (p->tag) {
+			case cString:
+				lc = pad(voidptype->align, lc);
+				comment("cString lc=%d \"%s\"\n", lc, p->ptr);
+				lc = emit_value(lc, unsignedchar, p->tag);
+				len = strlen(p->ptr) + 1;
+				lc = emit_value(lc, unsignedshort, roundup(len,voidptype->align));
+				(*IR->defstring)(len, p->ptr);
+				lc += len;
+				break;
+			default: assert(0);
+			}
 		}
+		nconstants = pad(maxalign, lc);
+		Table_free(&constantTable);
 	}
 	{	/* emit module */
 		int lc;
@@ -391,12 +404,11 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = emit_value( 0, voidptype, coordinates);
 		lc = emit_value(lc, voidptype, files);
 		lc = emit_value(lc, voidptype, link);
-		lc = emit_value(lc, unsignedshort, nstrings);
-		lc = emit_value(lc, voidptype, strs);
+		lc = emit_value(lc, unsignedtype, nconstants);
+		lc = emit_value(lc, voidptype, consts);
 		lc = pad(maxalign, lc);
 		nmodules += lc;
 	}
-	Table_free(&strings);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x
 	{
 		int total = 0;
@@ -404,7 +416,7 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		printit(coordinates);
 		printit(files);
 		printit(symbols);
-		printit(strings);
+		printit(constants);
 		printit(modules);
 		fprintf(stderr, "%7d bytes total\n", total);
 	}
@@ -573,8 +585,7 @@ static void stabinit(char *file, int argc, char *argv[]) {
 		leader = ";";
 	else
 		leader = " #";  /* it's a MIPS or ALPHA */
-	strings = Table_new(0, NULL, NULL);
-	fprintf(stderr, "strings = %x\n", strings);
+	constantTable = Table_new(0, NULL, NULL);
 	module = mksymbol(AUTO,
 		stringf("_module__V%x%x", time(NULL), getpid()),
 		array(unsignedtype, 0, 0));

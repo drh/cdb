@@ -3,6 +3,7 @@
 #include <string.h>
 #include "arena.h"
 #include "table.h"
+#include "seq.h"
 #include "atom.h"
 #include "symtab.h"
 #include "nub.h"
@@ -29,22 +30,42 @@ void _Sym_init() {
 	symbols = Table_new(0, 0, 0);
 }
 
-const char *_Sym_string(void *module, int index) {
-	struct module *m = Table_get(modules, module);
+static Seq_T readConstants(void *module) {
+	Seq_T constants = Seq_new(0);
+	struct module m;
+	char *cnsts;
+	int i = 0, n;
 
-	if (m == NULL) {
-		char *str;
-		int n;
-		m = Arena_alloc(arena, sizeof *m, __FILE__, __LINE__);
-		n = _Nub_fetch(SYM, module, m, sizeof *m);
-		assert(n == sizeof *m);
-		str = Arena_alloc(arena, m->strcount, __FILE__, __LINE__);
-		n = _Nub_fetch(STR, (void *)m->strings, str, m->strcount);
-		assert(n == m->strcount);
-		m->strings = str;
-		Table_put(modules, module, m);
+	n = _Nub_fetch(SYM, module, &m, sizeof m);
+	assert(n == sizeof m);
+	cnsts = Arena_alloc(arena, m.length, __FILE__, __LINE__);
+	n = _Nub_fetch(SYM, (void *)m.constants, cnsts, m.length);
+	assert(n == m.length);
+	for (n = 0; n < m.length; n++, i++) {
+		struct constant *p = (struct constant *)(cnsts + n);
+		switch (p->tag) {
+		case cString:
+			tracemsg("constants[%d]=\"%s\"\n", i, p->u.s.str);
+			n += p->u.s.len;
+			break;
+		default: assert(0);
+		}
+		Seq_addhi(constants, p);
 	}
-	return m->strings + index;
+	return constants;
+}
+
+const char *_Sym_string(void *module, int index) {
+	struct constant *p;
+	Seq_T constants = Table_get(modules, module);
+
+	if (constants == NULL) {
+		constants = readConstants(module);
+		Table_put(modules, module, constants);
+	}
+	p = Seq_get(constants, index);
+	assert(p->tag == cString);
+	return p->u.s.str;
 }
 
 struct ssymbol *_Sym_symbol(void *sym) {
