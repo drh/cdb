@@ -6,7 +6,7 @@
 static char rcsid[] = "$Id$";
 
 #ifndef LCCDIR
-#define LCCDIR "\\progra~1\\lcc\\4.1\\bin\\"
+#define LCCDIR "\\pkg\\lcc-4.0\\"
 #endif
 
 static char lccdir[512] = LCCDIR;

@@ -1,22 +1,22 @@
 # $Id$
-SRCDIR=/users/drh/book/4.2
-INCLUDES=-I/users/drh/lib/cii/1/include -I$(SRCDIR)/src -I$(BUILDDIR) -I$(ASDL_HOME)/include/asdlGen -I/users/drh/include
+INCLUDES=-I/users/drh/lib/cii/1/include -I/users/drh/book/4.0/src -I/users/drh/include
 NOTANGLE=notangle -L -t8
 CC=cc
 CFLAGS=-g -DWIN32
 LD=cc
+SRCDIR=c:/users/drh/book/4.0
 HOSTFILE=etc/win32.c
 BUILDDIR=x86/win32
 LDFLAGS=-g
-LIBS=-Wl$(ASDL_HOME)/lib/asdlGen/libasdl.lib -lcii -lws2_32.lib
-lib:=/users/drh/lib/cii/1;$(SRCDIR)/x86/win32;/Program Files/devstudio/vc/lib;e:/pkg/devstudio/vc/lib
+LIBS	= -lcii ws2_32.lib
+LIB=/users/drh/lib/cii/1;/users/drh/book/4.0/x86/win32;/Program Files/devstudio/vc/lib;e:/pkg/devstudio/vc/lib
 LCCINPUTS=.;\users\drh\lib\cii\1
-.EXPORT:	lib LCCINPUTS
+.EXPORT:	LIB LCCINPUTS
 E=.exe
 O=.obj
 A=.lib
 
-all::		$(BUILDDIR)/startup$O src/inits.c $(BUILDDIR)/liblcc$A $(BUILDDIR)/cpp$E $(BUILDDIR)/sym.typ
+all::		$(BUILDDIR)/startup$O src/inits.c $(BUILDDIR)/liblcc$A $(BUILDDIR)/cpp$E
 
 $(BUILDDIR)/startup$O:	;	cp startup/`basename $(BUILDDIR)`$O $@
 $(BUILDDIR)/liblcc$A:	;	cp $(SRCDIR)/$@ $@
@@ -28,11 +28,8 @@ clobber::
 		rm -f *.exe *$O *.asm *.s *.map *.pdb *.ilk *.idb
 		rm -f packing.lst
 
-$(BUILDDIR)/sym.typ:	src/sym.asdl
-			$(ASDL_HOME)/bin/asdlGen --typ -o $@ $^
-
 src/inits.c:	$(SRCDIR)/src/inits.c makefile
-		sed -e '/^}/d' -e '/asdl/d' <$(SRCDIR)/src/inits.c >$@
+		sed '/^}/d' <$(SRCDIR)/src/inits.c >$@
 		echo '\t{extern void zstab_init(int, char *[]); zstab_init(argc, argv);}' >>$@
 		echo '}\nextern int main(int, char *[]);' >>$@
 
