@@ -3,7 +3,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#undef __STRING
 #include <errno.h>
 #include "comm.h"
 
