@@ -29,14 +29,13 @@ extern char *replace(const char *, int, int);
 
 int option(char *arg) {
 	if (strncmp(arg, "-lccdir=", 8) == 0) {
-		arg = replace(arg + 8, '/', '\\');
-		if (arg[strlen(arg)-1] == '\\')
-			arg[strlen(arg)-1] = '\0';
-		cpp[0] = stringf("%s\\cpp.exe", arg);
-		include[0] = stringf("-I%s\\include", arg);
-		com[0] = stringf("%s\\rcc.exe", arg);
-		ld[10] = stringf("%s\\liblcc.lib", arg);
-		strcpy(lccdir, arg);
+		strcpy(lccdir, replace(arg + 8, '/', '\\'));
+		if (lccdir[strlen(lccdir)-1] == '\\')
+			lccdir[strlen(lccdir)-1] = '\0';
+		cpp[0] = stringf("%s\\cpp.exe", lccdir);
+		include[0] = stringf("-I%s\\include", lccdir);
+		com[0] = stringf("%s\\rcc.exe", lccdir);
+		ld[10] = stringf("%s\\liblcc.lib", lccdir);
 	} else if (strcmp(arg, "-b") == 0)
 		;
 	else if (strncmp(arg, "-ld=", 4) == 0)
@@ -44,6 +43,8 @@ int option(char *arg) {
 	else if (strcmp(arg, "-g4") == 0) {
 		extern char *tempdir;
 		char *tmp = stringf("%s\\%d", tempdir, getpid());
+		if (lccdir[strlen(lccdir)-1] == '\\')
+			lccdir[strlen(lccdir)-1] = '\0';
 		ld[0] = stringf("sh %s\\prelink.sh -o %s.obj", lccdir, tmp);
 		ld[1] = "$2";
 		ld[2] = "\nlink -nologo";
