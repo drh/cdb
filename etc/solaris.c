@@ -23,19 +23,18 @@ char *com[] = { LCCDIR "rcc", "-target=sparc/solaris", "",
 	"$1", "$2", "$3", 0 };
 char *as[] = { "/usr/ccs/bin/as", "-Qy", "-s", "-o", "$3", "$1", "$2", 0 };
 static char *ld2[] = {
-	/*  0 */ "sh",
+	/*  0 */ "/bin/sh",
 	/*  1 */ LCCDIR "prelink.sh", "-o",
 	/*  3 */ ".o", "$2", "\n",
 	/*  6 */ "/usr/ccs/bin/ld", "-o", "$3", "$1", SUNDIR "crti.o",
-	/* 11 */ SUNDIR "crt1.o", SUNDIR "values-xa.o", "$2",
-	/* 14 */ ".o",
-	/* 15 */ LCCDIR "startup.o", "-Y",
-	/* 17 */ "P," SUNDIR ":/usr/ccs/lib:/usr/lib", "-Qy",
-	/* 19 */ "-L" LCCDIR, "-llcc", "-lnub", "-lsocket", "-lnsl", "-lm", "-lc", SUNDIR "crtn.o",
-	/* 27 */ "\n", "rm", "-f",
-	/* 30 */ ".o",
-	/* 31 */ ".c",
-	/* 32 */ 0
+	/* 11 */ SUNDIR "startup.o", SUNDIR "values-xa.o", "$2",
+	/* 14 */ ".o", "-Y",
+	/* 16 */ "P," SUNDIR ":/usr/ccs/lib:/usr/lib", "-Qy",
+	/* 18 */ "-L" LCCDIR, "-llcc", "-lnub", "-lsocket", "-lnsl", "-lm", "-lc", SUNDIR "crtn.o",
+	/* 26 */ "\n", "/bin/rm", "-f",
+	/* 29 */ ".o",
+	/* 30 */ ".c",
+	/* 31 */ 0
 };
 char *ld[sizeof ld2/sizeof ld2[0]] = {
 	/*  0 */ "/usr/ccs/bin/ld", "-o", "$3", "$1", SUNDIR "crti.o",
@@ -57,16 +56,14 @@ int option(char *arg) {
 		ld[11] = stringf("-L%s", lccdir);
 		com[0] = stringf("%s/rcc", lccdir);
 		ld2[1] = stringf("%s/prelink.sh", lccdir);
-		ld2[15] = stringf("%s/startup.o", lccdir);
-		ld2[19] = ld[11];
+		ld2[11] = stringf("%s/startup.o", lccdir);
+		ld2[18] = ld[11];
 	} else if (strcmp(arg, "-g") == 0)
 		;
 	else if (strcmp(arg, "-p") == 0) {
 		ld[5] = SUNDIR "mcrt1.o";
 		ld[9] = "P," SUNDIR "libp:/usr/ccs/lib/libp:/usr/lib/libp:"
 			 SUNDIR ":/usr/ccs/lib:/usr/lib";
-		ld2[11] = ld[5];
-		ld2[17] = ld[9];
 	} else if (strcmp(arg, "-b") == 0)
 		;
 	else if (strncmp(arg, "-ld=", 4) == 0) {
@@ -77,8 +74,8 @@ int option(char *arg) {
 		extern int getpid(void);
 		ld2[3] = stringf("%s/%d.o", tempdir, getpid());
 		ld2[14] = ld2[3];
-		ld2[30] = ld2[3];
-		ld2[31] = stringf("%s/%d.c", tempdir, getpid());
+		ld2[29] = ld2[3];
+		ld2[30] = stringf("%s/%d.c", tempdir, getpid());
 		memcpy(ld, ld2, sizeof ld2);
 		com[2] = "-g4";
 	} else
