@@ -11,6 +11,7 @@ static char rcsid[] = "$Id$";
 #define SUNDIR "/opt/SUNWspro/SC4.0/lib/"
 #endif
 
+static char lccdir[512] = LCCDIR;
 char *suffixes[] = { ".c", ".i", ".s", ".o", ".out", 0 };
 char inputs[256] = "";
 char *cpp[] = { LCCDIR "cpp",
@@ -25,16 +26,19 @@ char *ld[] = { "/usr/ccs/bin/ld", "", "-o", "$3", "$1",
 	SUNDIR "crti.o", SUNDIR "crt1.o",
 	SUNDIR "values-xa.o", "$2", "",
 	"-Y", "P," SUNDIR ":/usr/ccs/lib:/usr/lib", "-Qy",
-	"-L" LCCDIR, "-llcc", "", "-lm", "-lc", SUNDIR "crtn.o", 0 };
+	"-L" LCCDIR, "-llcc", "", "-lm", "-lc", SUNDIR "crtn.o", "", 0 };
 
 extern char *stringf(const char *, ...);
 
 int option(char *arg) {
 	if (strncmp(arg, "-lccdir=", 8) == 0) {
-		cpp[0] = stringf("%s/cpp", &arg[8]);
-		include[0] = stringf("-I%s/include", &arg[8]);
-		ld[13] = stringf("-L%s", &arg[8]);
-		com[0] = stringf("%s/rcc", &arg[8]);
+		strcpy(lccdir, &arg[8]);
+		if (lccdir[strlen(lccdir)-1] == '/')
+			lccdir[strlen(lccdir)-1] = '\0';
+		cpp[0] = stringf("%s/cpp", lccdir);
+		include[0] = stringf("-I%s/include", lccdir);
+		ld[13] = stringf("-L%s", lccdir);
+		com[0] = stringf("%s/rcc", lccdir);
 	} else if (strcmp(arg, "-g") == 0)
 		;
 	else if (strcmp(arg, "-p") == 0) {
@@ -47,16 +51,19 @@ int option(char *arg) {
 		ld[0] = &arg[4];
 	else if (strcmp(arg, "-g4") == 0) {
 		extern char *tempdir;
-		char *tmp = stringf("%s\\%d", tempdir, getpid());
-		ld[0] = stringf("sh %s\\prelink.sh -o %s.o", lccdir, tmp);
+		extern int getpid(void);
+		char *tmp = stringf("%s/%d", tempdir, getpid());
+		if (lccdir[strlen(lccdir)-1] == '/')
+			lccdir[strlen(lccdir)-1] = '\0';
+		ld[0] = stringf("sh %s/prelink.sh -o %s.o", lccdir, tmp);
 		ld[1] = "$2";
-		ld[2] = "\n/usr/ccs/bin/ld";
-		ld[9] = stringf("%s.o %s\\startup.o", tmp, lccdir);
-		ld[15] = "-lnub";
-		ld[18] = stringf("\nrm %s.obj %s.c", tmp, tmp);
+		ld[2] = "\n/usr/ccs/bin/ld -o";
+		ld[6] = stringf("%s/startup.o", lccdir);
+		ld[9] = stringf("%s.o", tmp);
+		ld[15] = "-lnub -lsocket -lnsl";
+		ld[19] = stringf("\nrm -f %s.obj %s.c", tmp, tmp);
 		com[2] = "-g4";
 	} else
-	else
 		return 0;
 	return 1;
 }
