@@ -87,8 +87,9 @@ shell and Visual C++ 5.0; I use the MKS Toolkit.
 
 1. Install lcc 4.0 (http://www.cs.princeton.edu/software/lcc/) and
 the CII library (http://www.cs.princeton.edu/software/cii/). You'll
-need the updated version of src/expr.c to compile cdb; visit the lcc
-web page to download src/expr.c before building lcc 4.0.
+need the updated versions of etc/lcc.c (rcsid 4.14 or better) and
+src/expr.c (rcsid 2.22 or better) to build the cdb components; visit
+the lcc web page to download these files before building lcc 4.0.
 
 2. Create a file, custom.mk, that redefines the definitions at the
 top of the makefile to suit your local configuration. Make sure
@@ -109,7 +110,9 @@ custom.mk. I use different names for different platforms, e.g.,
 	1% make CUSTOM=solaris.mk
 
 Depending on the values of file timestamps, you might have to touch
-etc/solaris.c or src/inits.c to force rebuilding of lcc or rcc.
+etc/solaris.c or src/inits.c, or remove the corresponding object
+files, to force rebuilding of lcc or rcc. Important: Use the same C
+compiler you used to build lcc.
 
 5. Copy the startup code to the build directory, and chmod the
 prelinker script:
