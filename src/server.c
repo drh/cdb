@@ -4,16 +4,13 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#undef __STRING
 #include "fmt.h"
-#include "symtab.h"
-#include "mem.h"
 #include "comm.h"
 
 static char rcsid[] = "$Id$";
 
 static SOCKET in, out;
-static Nub_callback_T breakhandler;
+Nub_callback_T breakhandler;
 
 static void sendout(int op, const void *buf, int size) {
 	Header_T msg;
@@ -27,58 +24,16 @@ static void sendout(int op, const void *buf, int size) {
 	}
 }
 
-static int equal(Nub_coord_T *src, sym_coordinate_ty w)  {
-	/*
-	Two coordinates are "equal" if their
-	nondefault components are equal.
-	*/
-	return (src->y == 0 || src->y == w->y)
-	    && (src->x == 0 || src->x == w->x)
-	    && (src->file[0] == 0 || w->file && strcmp(src->file, w->file) == 0);
-}
+int _Nub_frame(int n, Nub_state_T *state) {
+	struct nub_frame args;
 
-static void *coord2bpaddr(Nub_coord_T *src) {
-	int i, count = Seq_length(pickles);
-
-	for (i = 0; i < count; i++) {
-		sym_module_ty pickle = Seq_get(pickles, i);
-		int j, n = Seq_length(pickle->spoints);
-		for (j = 0; j < n; j++) {
-			sym_spoint_ty s = Seq_get(pickle->spoints, j);
-			if (equal(src, s->src)) {
-				count = Seq_length(modules);
-				for (i = 0; i < count; i++) {
-					struct module *m = Seq_get(modules, i);
-					if (pickle->uname == m->uname)
-						return (char *)NULL + j;
-				}
-				assert(0);
-				return NULL;
-			}
-		}
-	}
-	assert(0);
-	return NULL;
-}
-
-static void set_state(Nub_state_T *state) {
-	struct sframe frame;
-	sym_symbol_ty f;
-	sym_module_ty m;
-	sym_spoint_ty s;
-	int n = _Nub_fetch(0, state->fp, &frame, sizeof frame);
-
-	assert(n == sizeof frame);
-	f = _Sym_symbol(frame.module, frame.func);
-	assert(f);
-	strncpy(state->name, f->id, sizeof state->name);
-	m = _Sym_module(frame.module);
-	assert(m);
-	s = Seq_get(m->spoints, frame.ip);
-	assert(s);
-	strncpy(state->src.file, s->src->file, sizeof state->src.file);
-	state->src.x = s->src->x; state->src.y = s->src->y;
-	state->context = _Sym_symbol(frame.module, s->tail);
+	args.n = n;
+	sendout(NUB_FRAME, &args, sizeof args);
+	recvmesg(in, &args, sizeof args);
+	if (args.n >= 0)
+		memcpy(state, &args.state, sizeof args.state);
+	_Nub_state(state);
+	return args.n;
 }
 
 void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
@@ -96,36 +51,18 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 		switch (msg) {
 		case NUB_BREAK:
 			recvmesg(in, &state, sizeof state);
-			set_state(&state);
+			_Nub_state(&state);
 			(*breakhandler)(state);
 			break;
 		case NUB_FAULT:
 			recvmesg(in, &state, sizeof state);
-			set_state(&state);
+			_Nub_state(&state);
 			fault(state);
 			break;
 		case NUB_QUIT: return;
 		default: assert(0);
 		}
 	}
-}
-
-Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
-	Nub_callback_T prev = breakhandler;
-	char flag = 1;
-	int n = _Nub_store(1, coord2bpaddr(&src), &flag, 1);
-
-	assert(n == 1);
-	breakhandler = onbreak;
-	return prev;
-}
-
-Nub_callback_T _Nub_remove(Nub_coord_T src) {
-	char flag = 0;
-	int n = _Nub_store(1, coord2bpaddr(&src), &flag, 1);
-
-	assert(n == 1);
-	return breakhandler;
 }
 
 int _Nub_fetch(int space, const void *address, void *buf, int nbytes) {
@@ -155,37 +92,6 @@ int _Nub_store(int space, void *address, const void *buf, int nbytes) {
 	sendout(NUB_STORE, &args, sizeof args);
 	recvmesg(in, &args.nbytes, sizeof args.nbytes);
 	return args.nbytes;
-}
-
-int _Nub_frame(int n, Nub_state_T *state) {
-	struct nub_frame args;
-
-	args.n = n;
-	sendout(NUB_FRAME, &args, sizeof args);
-	recvmesg(in, &args, sizeof args);
-	if (args.n >= 0)
-		memcpy(state, &args.state, sizeof args.state);
-	set_state(state);
-	return args.n;
-}
-
-void _Nub_src(Nub_coord_T src,
-	void apply(int i, const Nub_coord_T *src, void *cl), void *cl) {
-	int i, k = 0, count = Seq_length(pickles);
-
-	for (i = 0; i < count; i++) {
-		sym_module_ty pickle = Seq_get(pickles, i);
-		int j, n = Seq_length(pickle->spoints);
-		for (j = 0; j < n; j++) {
-			sym_spoint_ty s = Seq_get(pickle->spoints, j);
-			if (equal(&src, s->src)) {
-				Nub_coord_T z;
-				strncpy(z.file, s->src->file, sizeof z.file);
-				z.x = s->src->x; z.y = s->src->y;
-				apply(k++, &z, cl);
-			}
-		}
-	}
 }
 
 extern void _Cdb_startup(Nub_state_T state), _Cdb_fault(Nub_state_T state);
