@@ -9,17 +9,22 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
+#ifndef INADDR_NONE
+#define INADDR_NONE (-1)
+#endif
 typedef int SOCKET;
 #define SOCKET_ERROR (-1)
-#define closesocket close
+extern int close(int);
+#define closesocket(x) close(x)
 #endif
 
 extern int trace;
 extern const char *identity;
 
-extern const char *msgname(Header_T msg);
-extern void tracemsg(const char *fmt, ...);
-extern void sendmsg(SOCKET s, const void *buf, int size);
-extern void recvmsg(SOCKET s, void *buf, int size);
+extern const char *mesgname(Header_T msg);
+extern void tracemesg(const char *fmt, ...);
+extern void sendmesg(SOCKET s, const void *buf, int size);
+extern void recvmesg(SOCKET s, void *buf, int size);
 
 #endif
