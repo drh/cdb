@@ -15,9 +15,9 @@ static char rcsid[] = "$Id$";
 static char *leader;
 static sym_module_ty pickle;
 static Symbol module;
-static Symbol bpflags;
 static unsigned uname;
 static Symbol nub_bp;
+static Symbol nub_bpflags;
 static Symbol nub_tos;
 static Symbol tos;
 static Seq_T locals;
@@ -209,15 +209,8 @@ static int symboluid(const Symbol p) {
 /* stabend - emits the symbol table */
 static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp[], Symbol *ignore) {
 	Symbol addresses;
-	int naddresses, nmodules, nbpflags;
+	int naddresses, nmodule;
 
-	{	/* emit breakpoint flags */
-		int i, lc;
-		comment("breakpoint flags:\n");
-		defglobal(bpflags, DATA);
-		nbpflags = Seq_length(pickle->spoints);
-		(*IR->space)(nbpflags);
-	}
 	{	/* annotate top-level symbols */
 		Symbol p;
 		for (p = symroot; p != NULL; p = up(p->up))
@@ -237,23 +230,28 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		naddresses = lc;
 		Seq_free(&statics);
 	}
+	{	/* emit bp count as an alias for the module */
+		Symbol spoints = mksymbol(AUTO,
+			stringf("_spoints_V%x_%d", uname, Seq_length(pickle->spoints)),
+			array(unsignedtype, 0, 0));
+		spoints->generated = 1;
+		defglobal(spoints, LIT);
+	}
 	{	/* emit module */
 		int lc;
 		comment("module:\n");
 		defglobal(module, LIT);
 		lc = emit_value( 0, unsignedtype, (unsigned long)uname);
-		lc = emit_value(lc, voidptype, bpflags);
 		lc = emit_value(lc, voidptype, addresses);
 		lc = pad(maxalign, lc);
-		nmodules = lc;
+		nmodule = lc;
 	}
 	Seq_free(&locals);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x
 	{
 		int total = 0;
-		printit(bpflags);
 		printit(addresses);
-		printit(modules);
+		printit(module);
 		fprintf(stderr, "%7d bytes total\n", total);
 	}
 #undef printit
@@ -281,12 +279,12 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 	
 	/*
 	add breakpoint test to *e:
-	(module.bpflags[i] < 0 && _Nub_bp(i), *e)
+	(_Nub_bpflags[i] < 0 && _Nub_bp(i), *e)
 	*/
 	t = tree(AND, voidtype,
 		(*optree[NEQ])(NE,
 			rvalue((*optree['+'])(ADD,
-				pointer(idtree(bpflags)),
+				pointer(idtree(nub_bpflags)),
 				cnsttree(inttype, Seq_length(pickle->spoints)))),
 			cnsttree(inttype, 0L)),
 		vcall(nub_bp, voidtype, cnsttree(inttype, Seq_length(pickle->spoints)), NULL));
@@ -406,9 +404,10 @@ static void stabinit(char *file, int argc, char *argv[]) {
 	locals = Seq_new(0);
 	statics = Seq_new(0);
 	uidTable = Table_new(0, 0, 0);
-	module = mksymbol(AUTO,	stringf("_module__V%x", uname), array(unsignedtype, 0, 0));
+	module = mksymbol(AUTO,	stringf("_module_V%x", uname), array(unsignedtype, 0, 0));
 	module->generated = 1;
-	bpflags = genident(STATIC, array(chartype, 1, 0), GLOBAL);
+	nub_bpflags = mksymbol(EXTERN, "_Nub_bpflags", array(chartype, 1, 0));
+	nub_bpflags->defined = 0;
 	attach((Apply) entry_hook, NULL, &events.entry);
 	attach((Apply) block_hook, NULL, &events.blockentry);
 	attach((Apply) point_hook, NULL, &events.points);

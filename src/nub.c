@@ -62,6 +62,7 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 	frameno = 0;
 	state = z;
 	state.context = _Nub_modules;
+	state.fp = _Nub_bpflags;
 	update();
 	startup(state);
 }
@@ -103,6 +104,12 @@ int _Nub_fetch(int space, const void *address, void *buf, int nbytes) {
 int _Nub_store(int space, void *address, const void *buf, int nbytes) {
 	if (nbytes <= 0)
 		return 0;
+	if (space == 1) {	/* write _Nub_bpflags[i] */
+		int i = (char *)address - (char *)NULL;
+		assert(nbytes == 1);
+		memcpy(&_Nub_bpflags[i], buf, nbytes);
+		return nbytes;
+	}
 	nbytes = valid(address, nbytes);
 	if (nbytes > 0 && buf)
 		memcpy(address, buf, nbytes);

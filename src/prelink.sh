@@ -20,17 +20,23 @@ do
 	esac
 done
 nm $files | awk '
-/_module__V/    {
-        if (match($0, /_module__V[0-9a-f]*/)) {
+/_module_V/    {
+        if (match($0, /_module_V[0-9a-f]*/)) {
                 m=substr($0, RSTART, RLENGTH)
                 if (!seen[m]) {
                         printf "extern struct module %s;\n", m
-                        seen[m] = 1
-                } }
-        }
+			seen[m] = 1
+		} }
+	}
+/_spoints_V/	{
+	if (match($0, /_[0-9]+/)) {
+		n = substr($0, RSTART+1, RLENGTH-1)
+		if (max < n) max = n
+	} }
 END     {
 print "struct module *_Nub_modules[] = {"
 for (m in seen) printf "\t&%s,\n", m
 printf "\t0\n};\n"
+printf "char _Nub_bpflags[%d];\n", max + 1
 }' >$cfile
 lcc -c -o "$ofile" $cfile
