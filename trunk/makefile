@@ -1,3 +1,4 @@
+# $Id$
 CFLAGS	= -g
 INCLUDES= -I/usr/local/lib/cii/1/include -I/u/drh/book/4.0/src
 LIBS	= -lcii
@@ -9,7 +10,7 @@ A=.a
 CUSTOM=custom.mk
 include $(CUSTOM)
 
-all::		$(BUILDDIR)/libnub$A $(BUILDDIR)/cdb$E $(BUILDDIR)/stab$O
+all::			$(BUILDDIR)/libnub$A $(BUILDDIR)/cdb$E $(BUILDDIR)/stab$O
  
 $(BUILDDIR)/libnub$A:	$(BUILDDIR)/server$O $(BUILDDIR)/nub$O $(BUILDDIR)/symstub$O
 			ar ruv $@ $?
