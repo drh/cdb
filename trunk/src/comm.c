@@ -46,7 +46,7 @@ void recvmsg(SOCKET s, void *buf, int size) {
 	n = read(s, buf, size);
 	tracemsg("%s: received %d bytes\n", identity, n);
 	if (n != size)
-		tracemsg("%s: **expected %d bytes\n", identity, n, size);
+		tracemsg("%s: **expected %d bytes\n", identity, size);
 	assert(n == size);
 }
 
@@ -56,6 +56,6 @@ void sendmsg(SOCKET s, const void *buf, int size) {
 	tracemsg("%s: sending %d bytes\n", identity, size);
 	n = write(s, buf, size);
 	if (n != size)
-		tracemsg("%s: **expected %d bytes\n", identity, n);
+		tracemsg("%s: **expected %d bytes\n", identity, size);
 	assert(n == size);
 }
