@@ -129,6 +129,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 			movedown();
 	}
 	state->fp = (char *)fp;
+	_Nub_state(state);
 	return frameno;
 }
 
