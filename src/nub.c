@@ -80,17 +80,6 @@ void _Nub_bp(int index) {
 	breakhandler(state);
 }
 
-Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
-	Nub_callback_T prev = breakhandler;
-
-	breakhandler = onbreak;
-	return prev;
-}
-
-Nub_callback_T _Nub_remove(Nub_coord_T src) {
-	return breakhandler;
-}
-
 static int valid(const char *address, int nbytes) {
 #define xx(z) if (address >= z.start && address < z.end) \
 		      return (unsigned)nbytes > z.end - address ? z.end - address : nbytes

@@ -10,8 +10,6 @@
 	xx(NUB_STARTUP) \
 	xx(NUB_BREAK) \
 	xx(NUB_FAULT) \
-	xx(NUB_SET) \
-	xx(NUB_REMOVE) \
 	xx(NUB_FETCH) \
 	xx(NUB_STORE) \
 	xx(NUB_FRAME) \
@@ -22,11 +20,6 @@ typedef enum {		/* messages */
 	messagecodes
 #undef xx
 } Header_T;
-
-struct nub_set {
-	int module;
-	int index;
-};
 
 struct nub_fetch {
 	int space;

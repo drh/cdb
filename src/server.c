@@ -38,24 +38,28 @@ static int equal(Nub_coord_T *src, sym_coordinate_ty w)  {
 	    && (src->file[0] == 0 || w->file && strcmp(src->file, w->file) == 0);
 }
 
-static struct nub_set coord2bploc(Nub_coord_T *src) {
-	struct nub_set loc;
-	int i, count = Seq_length(modules);
+static void *coord2bpaddr(Nub_coord_T *src) {
+	int i, count = Seq_length(pickles);
 
 	for (i = 0; i < count; i++) {
-		sym_module_ty m = Seq_get(modules, i);
-		int j, n = Seq_length(m->spoints);
+		sym_module_ty pickle = Seq_get(pickles, i);
+		int j, n = Seq_length(pickle->spoints);
 		for (j = 0; j < n; j++) {
-			sym_spoint_ty s = Seq_get(m->spoints, j);
+			sym_spoint_ty s = Seq_get(pickle->spoints, j);
 			if (equal(src, s->src)) {
-				loc.module = m->uname;
-				loc.index = j;
-				return loc;
+				count = Seq_length(modules);
+				for (i = 0; i < count; i++) {
+					struct module *m = Seq_get(modules, i);
+					if (pickle->uname == m->uname)
+						return m->bpflags + j;
+				}
+				assert(0);
+				return NULL;
 			}
 		}
 	}
 	assert(0);
-	return loc;
+	return NULL;
 }
 
 static void setstate(Nub_state_T *state) {
@@ -105,17 +109,19 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 
 Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
 	Nub_callback_T prev = breakhandler;
-	struct nub_set loc = coord2bploc(&src);
+	char flag = 1;
+	int n = _Nub_store(0, coord2bpaddr(&src), &flag, 1);
 
+	assert(n == 1);
 	breakhandler = onbreak;
-	sendout(NUB_SET, &loc, sizeof loc);
 	return prev;
 }
 
 Nub_callback_T _Nub_remove(Nub_coord_T src) {
-	struct nub_set loc = coord2bploc(&src);
+	char flag = 0;
+	int n = _Nub_store(0, coord2bpaddr(&src), &flag, 1);
 
-	sendout(NUB_REMOVE, &loc, sizeof loc);
+	assert(n == 1);
 	return breakhandler;
 }
 
@@ -161,7 +167,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 
 void _Nub_src(Nub_coord_T src,
 	void apply(int i, const Nub_coord_T *src, void *cl), void *cl) {
-	int i, k = 0, count = Seq_length(modules);
+	int i, k = 0, count = Seq_length(pickles);
 
 	for (i = 0; i < count; i++) {
 		sym_module_ty pickle = Seq_get(modules, i);

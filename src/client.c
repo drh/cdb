@@ -28,33 +28,6 @@ static char *stringf(const char *fmt, ...) {
 	return buf;
 }
 
-static struct module *findmodule(unsigned int uname) {
-	int i;
-
-	for (i = 0; _Nub_modules[i] != NULL; i++)
-		if (_Nub_modules[i]->uname == uname)
-			return _Nub_modules[i];
-	return NULL;
-}
-
-static void nub_set(struct nub_set *args, Nub_callback_T onbreak) {
-	struct module *mp = findmodule(args->module);
-	static Nub_coord_T z;
-
-	assert(mp);
-	mp->bpflags[args->index] = 1;
-	(void)_Nub_set(z, onbreak);
-}
-
-static void nub_remove(struct nub_set *args) {
-	struct module *mp = findmodule(args->module);
-	static Nub_coord_T z;
-
-	assert(mp);
-	mp->bpflags[args->index] = 0;
-	(void)_Nub_remove(z);
-}
-
 static void swtch(void);
 
 static void onbreak(Nub_state_T state) {
@@ -75,18 +48,6 @@ static void swtch(void) {
 		switch (msg) {
 		case NUB_CONTINUE: return;
 		case NUB_QUIT: out = 0; exit(EXIT_FAILURE); break;
-		case NUB_SET: {
-			struct nub_set args;
-			recvmesg(in, &args, sizeof args);
-			nub_set(&args, onbreak);
-			break;
-		}
-		case NUB_REMOVE: {
-			struct nub_set args;
-			recvmesg(in, &args, sizeof args);
-			nub_remove(&args);
-			break;
-		}
 		case NUB_FETCH: {
 			int nbytes;
 			struct nub_fetch args;
