@@ -4,8 +4,8 @@
 /* $Id$ */
 
 struct module {
-	unsigned uid;
-        union scoordinate *coordinates;
+	union scoordinate *coordinates;
+	struct ssymbol **tails;
         char **files;
 	struct ssymbol *globals;
 	int length;
@@ -79,7 +79,6 @@ struct sframe {
         struct sframe *up, *down;
         const char *func;
         struct module *module;
-        struct ssymbol *tail;
         int ip;
 };
 

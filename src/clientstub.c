@@ -22,7 +22,7 @@ void _Cdb_startup(Nub_state_T state) {
 	for (i = 0; (m = _Nub_modules[i]) != NULL; i++) {
 		int j, k;
 		static Nub_coord_T z;
-		fprintf(stderr, "module %x\n", m->uid);
+		fprintf(stderr, "module@%p\n", m);
 		for (j = 1; m->files[j]; j++)
 			fprintf(stderr, " %s", m->files[j]);
 		if (m->globals != NULL) {

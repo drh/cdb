@@ -255,7 +255,7 @@ static Symbol symbolindex(const Symbol sym) {
 static Symbol up(Symbol p) {
 	while (p != NULL && p->defined == 0
 	       && (p->sclass == EXTERN || isfunc(p->type) && p->sclass == AUTO))
-		p = p->up;
+			p = p->up;
 	return p;
 }
 
@@ -292,18 +292,18 @@ static void emit_symbol(Symbol p) {
 /* stabend - emits the symbol table */
 static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp[], Symbol *ignore) {
 	int nconstants, nmodules, nfiles, ncoordinates;
-	Symbol files, consts;
+	Symbol files, consts, tails;
 
-	{	/* emit coordinates */
-		int lc, count;
+	{	/* emit coordinates and symbol-table tails */
+		int i, lc, count = Seq_length(coordList);
 		comment("coordinates:\n");
 		defglobal(coordinates, DATA);
 		lc = emit_value(0, unsignedtype, 0UL);
 		lc = pad(maxalign, lc);
 		ncoordinates = lc;
-		for (count = Seq_length(coordList); count > 0; count--) {
+		for (i = 0; i < count; i += 2) {
 			static int n;
-			Coordinate *cp = Seq_remlo(coordList);
+			Coordinate *cp = Seq_get(coordList, i);
 			union scoordinate w;
 			w.i = 0;
 			if (IR->little_endian) {
@@ -322,6 +322,14 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 			ncoordinates += lc;
 		}
 		lc = emit_value(0, unsignedtype, 0UL);
+		lc = pad(maxalign, lc);
+		ncoordinates += lc;
+		comment("symbol-table tails:\n");
+		tails = genident(STATIC, array(inttype, 1, 0), GLOBAL);
+		defglobal(tails, LIT);
+		lc = emit_value(0, voidptype, NULL);
+		for (i = 1; i < count; i += 2)
+			lc = emit_value(lc, voidptype, Seq_get(coordList, i));
 		lc = pad(maxalign, lc);
 		ncoordinates += lc;
 		Seq_free(&coordList);
@@ -383,8 +391,8 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		int lc;
 		comment("module:\n");
 		defglobal(module, LIT);
-		lc = emit_value( 0, unsignedtype, (unsigned long)uid);
 		lc = emit_value( 0, voidptype, coordinates);
+		lc = emit_value(lc, voidptype, tails);
 		lc = emit_value(lc, voidptype, files);
 		lc = emit_value(lc, voidptype, symbolindex(symroot));
 		lc = emit_value(lc, unsignedtype, (long)nconstants);
@@ -436,21 +444,18 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 	NEW(p, PERM);
 	*p = *cp;
 	Seq_addhi(coordList, p);
+	Seq_addhi(coordList, tail());
 	/*
 	add breakpoint test to *e:
-	(module.coordinates[i].i < 0 && _Nub_bp(i, tail), *e)
+	(module.coordinates[i].i < 0 && _Nub_bp(i), *e)
 	*/
 	*e = right(tree(AND, voidtype,
-			(*optree['<'])(LT,
-				rvalue((*optree['+'])(ADD,
-					pointer(idtree(coordinates)),
-					cnsttree(inttype, (long)Seq_length(coordList)))),
-				consttree(0, inttype)),
-			calltree(pointer(idtree(nub_bp)), voidtype,
-				tree(ARG+P, voidptype, retype(idtree(tail()), voidptype), tree(
-				     ARG+I, inttype, cnsttree(inttype, (long)Seq_length(coordList)), NULL)),
-				NULL)
-		       ), *e);
+		(*optree['<'])(LT,
+			rvalue((*optree['+'])(ADD,
+				pointer(idtree(coordinates)),
+				cnsttree(inttype, Seq_length(coordList)/2L))),
+			cnsttree(inttype, 0L)),
+		vcall(nub_bp, voidtype, cnsttree(inttype, Seq_length(coordList)/2L), NULL)), *e);
 }
 
 /* setoffset - emits code to set the offset field for p */
@@ -478,7 +483,6 @@ static void entry_hook(void *cl, Symbol cfunc) {
 	addfield("down",  voidptype);
 	addfield("func",  voidptype);
 	addfield("module",voidptype);
-	addfield("tail",  voidptype);
 	addfield("ip",    inttype);     
 #undef addfield
 	ty->size = roundup(ty->size, ty->align);
@@ -495,7 +499,6 @@ static void entry_hook(void *cl, Symbol cfunc) {
 	set(down,       idtree(nub_tos));
 	set(func,       idtree(stringindex(cfunc->name)));
 	set(module,     idtree(module));
-	set(tail,       cnsttree(voidptype, (void*)0));
 #undef set
 	walk(asgn(nub_tos, lvalue(idtree(tos))), 0, 0);
 	foreach(identifiers, PARAM, setoffset, tos);
@@ -527,22 +530,16 @@ static void return_hook(void *cl, Symbol cfunc, Tree *e) {
 If *e is a call, call_hook changes the expression to the equivalent of
 the C expression
 
-	(tos.ip = i, tos.tail = tail, *e)
+	(tos.ip = i, *e)
 
 where i is the index in coordinates for the execution point of the
-expression in which the call appears, and tail is the corresponding
-tail of the list of visible symbols.
+expression in which the call appears.
 */
 static void call_hook(void *cl, Coordinate *cp, Tree *e) {
 	*e = right(
 		asgntree(ASGN,
-			field(lvalue(idtree(tos)), string("tail")),
-			retype(idtree(tail()), voidptype)),
-		*e);
-	*e = right(
-		asgntree(ASGN,
 			field(lvalue(idtree(tos)), string("ip")),
-			consttree(Seq_length(coordList), inttype)),
+			cnsttree(inttype, Seq_length(coordList)/2L)),
 		*e);
 }
 
