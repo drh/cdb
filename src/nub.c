@@ -6,33 +6,40 @@
 
 static char rcsid[] = "$Id";
 
+extern struct module *_Nub_modules[];
+
 struct sframe *_Nub_tos;
-struct module *_Nub_modules[];
+
 static Nub_callback_T faulthandler;
 static Nub_callback_T breakhandler;
 static int frameno;
 static struct ssymbol *root;
 static struct sframe *fp;
 static struct { char *start, *end; } text, data, stack;
-static union { int i; char endian; } little = { 1 };
 
-static void setcoord(union scoordinate w, struct module *modp, Nub_coord_T *src) {
-	int f, i, x, y;
+static int unpack(union scoordinate w, int *i, short int *x, short int *y) {
+	int f;
+	static union { int i; char endian; } little = { 1 };
 
 	if (little.endian) {
-		i = w.le.index;
-		x = w.le.x + 1;
-		y = w.le.y;
+		*i = w.le.index;
+		*x = w.le.x + 1;
+		*y = w.le.y;
 		f = w.le.flag;
 	} else {
-		i = w.be.index;
-		x = w.be.x + 1;
-		y = w.be.y;
+		*i = w.be.index;
+		*x = w.be.x + 1;
+		*y = w.be.y;
 		f = w.be.flag;
 	}
+	return f;
+}
+
+static void setcoord(union scoordinate w, struct module *modp, Nub_coord_T *src) {
+	int i;
+
+	unpack(w, &i, &src->x, &src->y);
 	strncpy(src->file, modp->files[i], sizeof src->file);
-	src->x = x;
-	src->y = y;
 }
 
 static void set_state(struct sframe *fp, Nub_state_T *state) {
@@ -58,24 +65,10 @@ static void moveup(void) {
 }
 
 static int equal(Nub_coord_T *src, union scoordinate w, char *files[]) {
-	int f, i, x, y;
+	int i;
+	short x, y;
 
-	/* <unpack w into f,i,x,y>=                                                 */
-	{
-		static union { int i; char endian; } little = { 1 };
-		if (little.endian) {
-			i = w.le.index;
-			x = w.le.x + 1;
-			y = w.le.y;
-			f = w.le.flag;
-		} else {
-			i = w.be.index;
-			x = w.be.x + 1;
-			y = w.be.y;
-			f = w.be.flag;
-		}
-	}
-
+	unpack(w, &i, &x, &y);
 	/*
 	Two coordinates are `equal' if their
 	nondefault components are equal.
@@ -85,7 +78,7 @@ static int equal(Nub_coord_T *src, union scoordinate w, char *files[]) {
 	    && (src->file[0] == 0 || files[i] && strcmp(src->file, files[i]) == 0);
 }
 
-union scoordinate *src2cp(Nub_coord_T src) {
+static union scoordinate *src2cp(Nub_coord_T src) {
 	int i;
 
 	for (i = 0; _Nub_modules[i]; i++) {
@@ -96,6 +89,29 @@ union scoordinate *src2cp(Nub_coord_T src) {
 				return cp;
 	}
 	return NULL;
+}
+
+/* update - update memory maps */
+static void update(void) {
+	char tos;
+#ifdef unix
+	{
+		extern char etext;
+		extern void *sbrk;
+		text.start = 0;
+		text.end = &etext;
+		data.start = &etext;
+		data.end = sbrk(0);	
+		if (data.end == (char *)-1)
+			data.end = data.start;
+		stack.start = &tos;
+		stack.end = (char *)-1;
+	}
+#else
+	text.start = 0; text.end = (char *)-1;
+	data.start = 0; data.end = (char *)-1;
+	stack.start = &tos; stack.end = (char *)-1;
+#endif
 }
 
 void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
@@ -124,23 +140,9 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 			int i;
 			union scoordinate w;
 			for (i = 1; (w = m->coordinates[i]).i; i++) {
-				int f, i, x, y;
-				/* <unpack w into f,i,x,y>=                                                 */
-				{
-					static union { int i; char endian; } little = { 1 };
-					if (little.endian) {
-						i = w.le.index;
-						x = w.le.x + 1;
-						y = w.le.y;
-						f = w.le.flag;
-					} else {
-						i = w.be.index;
-						x = w.be.x + 1;
-						y = w.be.y;
-						f = w.be.flag;
-					}
-				}
-
+				int i;
+				short x, y;
+				unpack(w, &i, &x, &y);
 				if (i > 0 && m->files[i])
 					fprintf(stderr, "%s:", m->files[i]);
 				fprintf(stderr, "%d.%d\n", y, x);
@@ -159,21 +161,7 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 	frameno = 0;
 	state = z;
 	state.context = root;
-	{	/* initialize memory map */
-		extern char etext;
-		text.start = 0;
-		text.end = &etext;
-		data.start = &etext;
-		stack.end = (char *)-1;
-		{
-			char tos;
-			extern void *sbrk(long);
-			data.end = sbrk(0);
-			if (data.end == (char *)-1)
-				data.end = data.start;
-			stack.start = &tos;
-		}
-	}
+	update();
 	startup(state);
 }
 
@@ -188,15 +176,7 @@ void _Nub_bp(int index, struct ssymbol *tail) {
 	fp->up = NULL;
 	set_state(fp, &state);
 	frameno = 0;
-	/* <update memory map>=                                                     */
-	{
-		char tos;
-		extern void *sbrk(long);
-		data.end = sbrk(0);
-		if (data.end == (char *)-1)
-			data.end = data.start;
-		stack.start = &tos;
-	}
+	update();
 	breakhandler(state);
 }
 
@@ -229,38 +209,37 @@ Nub_callback_T _Nub_remove(Nub_coord_T src) {
 	return breakhandler;
 }
 
+static int valid(const char *address, int nbytes) {
 #define xx(z) do { \
-	if ((char *)address >= z.start && (char *)address < z.end) { \
-		if ((char *)address > z.end - nbytes) \
-			n = z.end - (char *)address; \
+	if (address >= z.start && address < z.end) { \
+		if (z.end - address < nbytes) \
+			return z.end - address; \
 		else \
-			n = nbytes; } } while (0)
-
-int _Nub_fetch(int space, void *address, void *buf, int nbytes) {
-	int n = 0;
-
-	if (nbytes <= 0)
-		return 0;
+			return nbytes; } } while (0)
 	xx(stack);
 	xx(data);
 	xx(text);
-	if (n > 0)
-		memcpy(buf, address, n);
-	return n;
+#undef xx
+	return 0;
+}
+
+int _Nub_fetch(int space, void *address, void *buf, int nbytes) {
+	if (nbytes <= 0)
+		return 0;
+	nbytes = valid(address, nbytes);
+	if (nbytes > 0)
+		memcpy(buf, address, nbytes);
+	return nbytes;
 }
 
 int _Nub_store(int space, void *address, void *buf, int nbytes) {
-	int n = 0;
-
 	if (nbytes <= 0)
 		return 0;
-	xx(stack);
-	xx(data);
-	if (n > 0)
-		memcpy(address, buf, n);
-	return n;
+	nbytes = valid(address, nbytes);
+	if (nbytes > 0)
+		memcpy(address, buf, nbytes);
+	return nbytes;
 }
-#undef xx
 
 int _Nub_frame(int n, Nub_state_T *state) {
 	if (fp == NULL)
