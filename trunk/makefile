@@ -49,7 +49,8 @@ CDBOBJS=$Bserver$O \
 	$Bcomm$O \
 	$Bcdb$O \
 	$Bsym$O \
-	$Bsymtab$O
+	$Bsymtab$O \
+	$Bnub2$O
 
 $Bcdb$E:	$(CDBOBJS)
 		$(CC) $(LDFLAGS) -o $@ $(CDBOBJS) $(LIBS)
@@ -66,14 +67,11 @@ $Bserver$O:	src/server.c src/comm.h src/glue.h src/nub.h src/server.h src/symtab
 $Bclient$O:	src/client.c src/comm.h src/glue.h src/nub.h src/server.h
 		$(CC) -c $(CFLAGS) -o $@ src/client.c
 
-$Bclientstub$O:	src/clientstub.c src/glue.h src/nub.h
-		$(CC) -c $(CFLAGS) -I$(SRCDIR)/src -o $@ src/clientstub.c
-
 $Bnub$O:	src/nub.c src/nub.h src/glue.h
 		$(CC) -c $(CFLAGS) -I$(SRCDIR)/src -o $@ src/nub.c
 
-$Bsymstub$O:	src/symstub.c src/symtab.h
-		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/symstub.c
+$Bnub2$O:	src/nub2.c src/nub.h src/glue.h
+		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/nub2.c
 
 $Bsymtab$O:	src/symtab.c src/symtab.h src/glue.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/symtab.c
@@ -87,9 +85,15 @@ $Bsym.h:	src/sym.asdl
 $Bsym$O:	$Bsym.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ $Bsym.c
 
-stubtest:	wf.c lookup.c $Bcdb$O
-		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bcdb$O \
-			`if [ -d c:/ ]; then echo libcii.lib; else echo -lcii; fi`
+STUBOBJS=$Bcdb$O \
+	$Bsym$O \
+	$Bsymtab$O \
+	$Bnub2$O
+
+stubtest:	wf.c lookup.c $(STUBOBJS)
+		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $(STUBOBJS) \
+			`if [ -d c:/ ]; then echo '$(ASDL_HOME)/lib/asdlGen/libasdl.lib' libcii.lib; \
+			else echo -L$(ASDL_HOME)/lib/asdlGen -lasdl -lcii; fi`
 
 test:		wf.c lookup.c $Blibnub$A $Bcdb$E
 		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c
