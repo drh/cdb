@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <time.h>
+#include "table.h"
 
 static char rcsid[] = "$Id$";
 
@@ -16,7 +17,6 @@ static int ncoordinates;
 static int nfiles;
 static int nsymbols;
 static int nmodules;
-static int nstrings;
 static Symbol module;
 static char *filelist[32+1];
 static int epoints;
@@ -27,6 +27,12 @@ static Symbol link;
 static Symbol nub_bp;
 static Symbol nub_tos;
 static Symbol tos;
+static struct string {
+	char *str;
+	uint16 index;
+	struct string *link;
+} *stringlist, **laststring = &stringlist;
+static Table_T strings;
 
 /* comment - emits an assembly language comment */
 static void comment(char *fmt, ...) {
@@ -73,20 +79,30 @@ static int emit_value(int lc, Type ty, ...) {
 	return lc + ty->size;
 }
 
-/* emit_string - emits a pointer to a string constant */
+/* emit_string - emits the index of a string */
 static int emit_string(int lc, char *str) {
 	if (str) {
-		Symbol p = mkstr(str);
-		nstrings += p->type->size;
-		return emit_value(lc, voidptype, p->u.c.loc);
+		struct string *p = Table_get(strings, str);
+		if (p == NULL) {
+			static int index = 1;
+			NEW(p, PERM);
+			p->str = str;
+			p->index = index;
+			index += strlen(str) + 1;
+			p->link = NULL;
+			*laststring = p;
+			laststring = &p->link;
+			Table_put(strings, str, p);
+		}
+		return emit_value(lc, unsignedshort, p->index);
 	} else
-		return emit_value(lc, voidptype, NULL);
+		return emit_value(lc, unsignedshort, 0);
 }
 
 
 /* annotate - annotate a type ty with the label of its emitted stype structure.
 Other parts of stab.c annotate types and append them to typelist by
-calling annotate]], which traverses the type, generates the necessary
+calling annotate, which traverses the type, generates the necessary
 symbol, and stores it in the type's undocumented x.xtfield, which
 also marks the type as annotated.
 */
@@ -277,7 +293,8 @@ static void emit_type(Type ty) {
 
 /* stabend - emits the symbol table */
 static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp[], Symbol *ignore) {
-	Symbol types, files;
+	int nstrings;
+	Symbol types, files, strs;
 
 	{	/* emit symbols */
 		Symbol p, *allsyms = ltov(&symbollist, PERM);
@@ -346,6 +363,19 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = pad(maxalign, lc);
 		nfiles += lc;
 	}
+	{	/* emit strings */
+		struct string *p;
+		strs = genident(STATIC, array(chartype, 1, 0), GLOBAL);
+		comment("strings:\n");
+		defglobal(strs, LIT);
+		(*IR->defstring)(1, "");
+		nstrings = 1;
+		for (p = stringlist; p; p = p->link) {
+			int len = strlen(p->str);
+			(*IR->defstring)(len + 1, p->str);
+			nstrings += len + 1;
+		}
+	}
 	{	/* emit module */
 		int lc;
 		comment("module:\n");
@@ -353,6 +383,8 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = emit_value( 0, voidptype, coordinates);
 		lc = emit_value(lc, voidptype, files);
 		lc = emit_value(lc, voidptype, link);
+		lc = emit_value(lc, unsignedshort, nstrings);
+		lc = emit_value(lc, voidptype, strs);
 		lc = pad(maxalign, lc);
 		nmodules += lc;
 	}
@@ -362,6 +394,7 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		for (i = 0; alltypes[i] != NULL; i++)
 			emit_type(alltypes[i]);
 	}
+	Table_free(&strings);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x
 	{
 		int total = 0;
@@ -527,7 +560,6 @@ static void call_hook(void *cl, Coordinate *cp, Tree *e) {
 		*e);
 }
 
-
 /* stabinit - initialize for symbol table emission */
 static void stabinit(char *file, int argc, char *argv[]) {
 	extern Interface sparcIR, solarisIR, x86IR;
@@ -539,6 +571,8 @@ static void stabinit(char *file, int argc, char *argv[]) {
 		leader = ";";
 	else
 		leader = " #";  /* it's a MIPS or ALPHA */
+	strings = Table_new(0, NULL, NULL);
+	fprintf(stderr, "strings = %x\n", strings);
 	module = mksymbol(AUTO,
 		stringf("_module__V%x%x", time(NULL), getpid()),
 		array(unsignedtype, 0, 0));

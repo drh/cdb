@@ -2,10 +2,15 @@
 #define GLUE_INCLUDED
 
 /* $Id$ */
+
+typedef unsigned short uint16;
+
 struct module {
         union scoordinate *coordinates;
         char **files;
         struct ssymbol *link;
+	uint16 strcount;
+	const char *strings;
 };
 
 struct stype {
@@ -21,9 +26,9 @@ struct stype {
                         unsigned nelems;
                 } a;
                 struct {	/* structs/unions */
-                        char *tag;
+                        uint16 tag;
                         struct {
-                                char *name;
+                                uint16 name;
                                 struct stype *type;
                                 union offset {
                                         unsigned off;
@@ -34,9 +39,9 @@ struct stype {
                         } fields[1];
                 } s;
                 struct {	/* enums */
-                        char *tag;
+                        uint16 tag;
                         struct {
-                                char *name;
+                                uint16 name;
                                 int value;
                         } enums[1];
                 } e;
@@ -60,8 +65,8 @@ union scoordinate {
 struct ssymbol {
         int offset;
         void *address;
-        char *name;
-        char *file;
+        uint16 name;
+        uint16 file;
         unsigned char scope;
         unsigned char sclass;
         struct stype *type;
@@ -70,7 +75,7 @@ struct ssymbol {
 
 struct sframe {
         struct sframe *up, *down;
-        char *func;
+        uint16 func;
         struct module *module;
         struct ssymbol *tail;
         int ip;
