@@ -2,6 +2,7 @@
 INCLUDES=-I/users/drh/lib/cii/1/include -I/users/drh/book/4.0/src -I/users/drh/include
 NOTANGLE=notangle -L -t8
 CC=cc
+CFLAGS=-g -DWIN32
 LD=cc
 SRCDIR=c:/users/drh/book/4.0
 HOSTFILE=etc/win32.c
