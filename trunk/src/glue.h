@@ -3,14 +3,12 @@
 
 /* $Id$ */
 
-typedef unsigned int u4;
-
 struct module {
-	u4 uid;
+	unsigned uid;
         union scoordinate *coordinates;
         char **files;
-	struct ssymbol *link;
-	u4 length;
+	struct ssymbol *globals;
+	int length;
 	const char *constants;
 };
 
@@ -20,17 +18,17 @@ struct stype {
         unsigned size;
         union {
                 struct {	/* pointers */
-                        u4 type;
+                        const struct stype *type;
                 } p;
                 struct {	/* arrays */
-                        u4 type;
+                        const struct stype *type;
                         unsigned nelems;
                 } a;
                 struct {	/* structs/unions */
-                        u4 tag;
+                        const char *tag;
                         struct {
-                                u4 name;
-                                u4 type;
+                                const char *name;
+                                const struct stype *type;
                                 union offset {
                                         unsigned off;
                                         int offset;
@@ -40,18 +38,18 @@ struct stype {
                         } fields[1];
                 } s;
                 struct {	/* enums */
-                        u4 tag;
+                        const char *tag;
                         struct {
-                                u4 name;
+                                const char *name;
                                 int value;
                         } enums[1];
                 } e;
                 struct {	/* functions */
-                        u4 type;
-                        u4 args[1];
+                        const struct stype *type;
+                        const struct stype *args[1];
                 } f;
                 struct {	/* qualified types */
-                        u4 type;
+                        const struct stype *type;
 		} q;
         } u;
 };
@@ -65,17 +63,16 @@ union scoordinate {
 struct ssymbol {
 	union {
 		int value;
+		int offset;
 		void *address;
-		int *offaddr;
 	} u;
-	u4 self;
-        u4 name;
-        u4 file;
-        unsigned char scope;
-        unsigned char sclass;
+	const char *name;
+	const char *file;
+	unsigned char scope;
+	unsigned char sclass;
 	struct module *module;
-        u4 type;
-	u4 uplink;
+        const struct stype *type;
+	const struct ssymbol *uplink;
 };
 
 struct sframe {

@@ -18,8 +18,6 @@ typedef struct {
 
 typedef void (*Nub_callback_T)(Nub_state_T state);
 
-enum { SYM, TYPE, STR };
-
 extern struct module *_Nub_modules[];
 extern struct sframe *_Nub_tos;
 

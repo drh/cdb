@@ -44,8 +44,8 @@ static void put(char *fmt, ...) {
 	va_end(ap);
 }
 
-static void tput(void *module, u4 type) {
-	const struct stype *ty = _Sym_type(module, type);
+static void tput(const void *type) {
+	const struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
 
 	switch (ty->op) {
@@ -54,24 +54,24 @@ static void tput(void *module, u4 type) {
 			put("const ");
 		if (ty->op == VOLATILE || ty->op == CONST+VOLATILE)
 			put("volatile ");
-		tput(module, ty->u.q.type);
+		tput(ty->u.q.type);
 		break;
 	case POINTER: {
-		const struct stype *rty = _Sym_type(module, ty->u.p.type);
+		const struct stype *rty = _Sym_type(ty->u.p.type);
 		if (rty->op == STRUCT)
-			put("struct %s ", _Sym_string(module, rty->u.s.tag));
+			put("struct %s ", _Sym_string(rty->u.s.tag));
 		else if (rty->op == UNION)
-			put("union %s ", _Sym_string(module, rty->u.s.tag));
+			put("union %s ", _Sym_string(rty->u.s.tag));
 		else if (rty->op != POINTER) {
-			tput(module, ty->u.p.type);
+			tput(ty->u.p.type);
 			put(" ");
 		} else
-			tput(module, ty->u.p.type);
+			tput(ty->u.p.type);
 		put("*");
 		break;
 		}
 	case ARRAY:
-		tput(module, ty->u.a.type);
+		tput(ty->u.a.type);
 		if (ty->u.a.nelems > 0)
 			put("[%d]", ty->u.a.nelems);
 		else
@@ -79,12 +79,12 @@ static void tput(void *module, u4 type) {
 		break;
 	case FUNCTION: {
 		int i;
-		tput(module, ty->u.f.type);
+		tput(ty->u.f.type);
 		put(" (");
 		for (i = 0; (void *)&ty->u.f.args[i] < end; i++) {
 			if (i > 0)
 				put(",");
-			tput(module, ty->u.f.args[i]);
+			tput(ty->u.f.args[i]);
 		}
 		put(")");
 		break;
@@ -93,21 +93,21 @@ static void tput(void *module, u4 type) {
 	case UNION: {
 		int i;
 		put("%s %s { ", ty->op == STRUCT ? "struct" : "union",
-			_Sym_string(module, ty->u.s.tag));
+			_Sym_string(ty->u.s.tag));
 		for (i = 0; (void *)&ty->u.s.fields[i] < end; i++) {
-			tput(module, ty->u.s.fields[i].type);
-			put(" %s; ", _Sym_string(module, ty->u.s.fields[i].name));
+			tput(ty->u.s.fields[i].type);
+			put(" %s; ", _Sym_string(ty->u.s.fields[i].name));
 		}
 		put("}");
 		break;
 		}
 	case ENUM: {
 		int i;
-		put("enum %s {", _Sym_string(module, ty->u.s.tag));
+		put("enum %s {", _Sym_string(ty->u.s.tag));
 		for (i = 0; (void *)&ty->u.e.enums[i] < end; i++) {
 			if (i > 0)
 				put(",");
-			put("%s=%d", _Sym_string(module, ty->u.e.enums[i].name), ty->u.e.enums[i].value);
+			put("%s=%d", _Sym_string(ty->u.e.enums[i].name), ty->u.e.enums[i].value);
 		}
 		put("}");
 		break;
@@ -155,8 +155,8 @@ static void sput(char *address, int max) {
 	put("...");
 }
 
-static void vput(void *module, u4 type, char *address) {
-	const struct stype *ty = _Sym_type(module, type);
+static void vput(const void *type, char *address) {
+	const struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
 
 	if (address == NULL) {
@@ -165,16 +165,16 @@ static void vput(void *module, u4 type, char *address) {
 	}
 	switch (ty->op) {
 	case CONST: case VOLATILE: case CONST+VOLATILE:
-		vput(module, ty->u.q.type, address);
+		vput(ty->u.q.type, address);
 		break;
 	case POINTER: case FUNCTION: {
 		void *p;
 		put("(");
-		tput(module, type);
+		tput(type);
 		put(")");
 		getvalue(DATA, address, &p, ty->size);
 		put("0X%x", p);
-		if (p && _Sym_type(module, ty->u.p.type)->size == 1) {
+		if (p && _Sym_type(ty->u.p.type)->size == 1) {
 			put(" ");
 			sput(p, 80);
 		}
@@ -182,7 +182,7 @@ static void vput(void *module, u4 type, char *address) {
 		}
 	case ARRAY: {
 		char prev[1024], buf[1024];
-		int size = _Sym_type(module, ty->u.p.type)->size;
+		int size = _Sym_type(ty->u.p.type)->size;
 		if (ty->u.a.nelems > 0 && size == 1) {
 			put("{");
 			sput(address, 80);
@@ -192,7 +192,7 @@ static void vput(void *module, u4 type, char *address) {
 			put("{");
 			for (i = 0; i < (int)ty->u.a.nelems - 1; ) {
 				put("\n [%d]=", i);
-				vput(module, ty->u.a.type, address);
+				vput(ty->u.a.type, address);
 				getvalue(DATA, address, prev, size);
 				while (++i < (int)ty->u.a.nelems - 1) {
 					address += size;
@@ -202,16 +202,16 @@ static void vput(void *module, u4 type, char *address) {
 				}
 			}
 			put("\n [%d]=", i);
-			vput(module, ty->u.a.type, address);
+			vput(ty->u.a.type, address);
 			put("\n}");
 		} else if (ty->u.a.nelems > 0) {
 			int i;
 			put("{");
-			vput(module, ty->u.a.type, address);
+			vput(ty->u.a.type, address);
 			for (i = 1; i < (int)ty->u.a.nelems; i++) {
 				put(",");
 				address = (char *)address + size;
-				vput(module, ty->u.a.type, address);
+				vput(ty->u.a.type, address);
 			}
 			put("}");
 		} else
@@ -224,11 +224,11 @@ static void vput(void *module, u4 type, char *address) {
 		for (i = 0; (void *)&ty->u.s.fields[i] < end; i++) {
 			if (i > 0)
 				put(",");
-			put("%s=", _Sym_string(module, ty->u.s.fields[i].name));
+			put("%s=", _Sym_string(ty->u.s.fields[i].name));
 			if (ty->u.s.fields[i].u.offset < 0) {
 				unsigned buf, off;
 				int size, lsb;
-				const struct stype *fty = _Sym_type(module, ty->u.s.fields[i].type);
+				const struct stype *fty = _Sym_type(ty->u.s.fields[i].type);
 				static union { int i; char endian; } little = { 1 };
 				if (little.endian) {
 					lsb  = ty->u.s.fields[i].u.le.lsb;
@@ -246,7 +246,7 @@ static void vput(void *module, u4 type, char *address) {
 				else
 					put("%d", size == 8*sizeof buf ? buf : (~0UL<<size)|buf);
 			} else
-				vput(module, ty->u.s.fields[i].type, (char *)address + ty->u.s.fields[i].u.offset);
+				vput(ty->u.s.fields[i].type, (char *)address + ty->u.s.fields[i].u.offset);
 		}
 		put("}");
 		break;
@@ -256,10 +256,10 @@ static void vput(void *module, u4 type, char *address) {
 		getvalue(DATA, address, &value, ty->size);
 		for (i = 0; (void *)&ty->u.e.enums[i] < end; i++)
 			if (ty->u.e.enums[i].value == value) {
-				put("%s", _Sym_string(module, ty->u.e.enums[i].name));
+				put("%s", _Sym_string(ty->u.e.enums[i].name));
 				return;
 			}
-		put("(enum %s)%d", _Sym_string(module, ty->u.s.tag), value);
+		put("(enum %s)%d", _Sym_string(ty->u.s.tag), value);
 		break;
 		}
 	case VOID:      put("void"); break;
@@ -314,39 +314,38 @@ static void printsym(const struct ssymbol *sym, Nub_state_T *frame) {
 	const char *name;
 
 	assert(sym);
-	name = _Sym_string(sym->module, sym->name);
+	name = _Sym_string(sym->name);
 	switch (sym->sclass) {
 	case ENUM:
 		put("%s=%d", name, sym->u.value);
 		break;
 	case TYPEDEF:
 		put("%s is a typedef for ", name);
-		tput(sym->module, sym->type);
+		tput(sym->type);
 		break;
 	case EXTERN: case STATIC:
 		assert(sym->u.address);
 		put("%s@0x%x=", name, sym->u.address);
-		vput(sym->module, sym->type, sym->u.address);
+		vput(sym->type, sym->u.address);
 		break;
 	default: {
 		void *addr;
 		if (sym->scope >= PARAM) {
-			int offset;
-			getvalue(DATA, sym->u.offaddr, &offset, sizeof *sym->u.offaddr);
-			addr = frame->fp + offset;
+			assert(sym->u.offset);
+			addr = frame->fp + sym->u.offset;
 		} else {
 			assert(sym->u.address);
 			addr = sym->u.address;
 		}
 		put("%s@0x%x=", name, addr);
-		vput(sym->module, sym->type, addr);
+		vput(sym->type, addr);
 		}
 	}
 }
 
 static void printparam(const struct ssymbol *sym, Nub_state_T *frame) {
 	if (sym->uplink) {
-		const struct ssymbol *next = _Sym_symbol(sym->module, sym->uplink);
+		const struct ssymbol *next = _Sym_symbol(sym->uplink);
 		if (next->scope == PARAM) {
 			printparam(next, frame);
 			put(",");
@@ -417,14 +416,14 @@ static char *parse(char *line, Nub_coord_T *src) {
 		p = line;
 	p = skipwhite(p);
 	if (isdigit(*p))
-		for (src->y = 0; isdigit(*p); p++)
+		for ( ; isdigit(*p); p++)
 			src->y = 10*src->y + (*p - '0');
 	p = skipwhite(p);
 	if (*p == '.')
 		p++;	
 	p = skipwhite(p);
 	if (isdigit(*p))
-		for (src->x = 0; isdigit(*p); p++)
+		for ( ; isdigit(*p); p++)
 			src->x = 10*src->x + (*p - '0');
 	return skipwhite(p);
 }
@@ -453,6 +452,12 @@ static void b_cmd(char *line) {
 	Nub_coord_T src;
 	struct cdb_src z;
 
+	if (*skipwhite(line) == 0) {
+		int i;
+		for (i = 0; i < nbpts; i++)
+			put("r %s:%d.%d\n", bkpts[i].file, bkpts[i].y, bkpts[i].x);
+		return;
+	}
 	if (*parse(line, &src)) {
 		put("?Unrecognized coordinate: %s", line);
 		return;
@@ -464,21 +469,19 @@ static void b_cmd(char *line) {
 	else if (z.n == 1) {
 		int i;
 		for (i = 0; i < nbpts; i++)
-			if (equal(&z.first, &bkpts[i]))
-				break;
-		if (i < nbpts)
-			put("?There is already a breakpoint at %s:%d.%d\n",
-				z.first.file, z.first.y, z.first.x);
-		else if (nbpts < sizeof bkpts/sizeof bkpts[0]) {
+			if (equal(&z.first, &bkpts[i])) {
+				put("?There is already a breakpoint at %s:%d.%d\n",
+					z.first.file, z.first.y, z.first.x);
+				return;
+			}
+		if (nbpts < sizeof bkpts/sizeof bkpts[0]) {
 			bkpts[nbpts++] = z.first;
 			_Nub_set(z.first, onbreak);
+			put("To remove this breakpoint, sweep and send the command:\n");
+			put("r %s:%d.%d\n", z.first.file, z.first.y, z.first.x);
 		} else
 			put("?Cannot set more than %d breakpoints\n",
 				sizeof bkpts/sizeof bkpts[0]);
-		if (i < nbpts) {
-			put("To remove this breakpoint, sweep and send the command:\n");
-			put("r %s:%d.%d\n", z.first.file, z.first.y, z.first.x);
-		}
 	}
 }
 
@@ -517,8 +520,7 @@ static void r_cmd(char *line) {
 		put("Sweep and send any of the following commands:\n");
 		for (i = 0; i < nbpts; i++)
 			if (equal(&src, &bkpts[i]))
-				put("r %s:%d.%d\n",
-					bkpts[i].file, bkpts[i].y, bkpts[i].x);
+				put("r %s:%d.%d\n", bkpts[i].file, bkpts[i].y, bkpts[i].x);
 	}
 }
 
@@ -527,13 +529,13 @@ static void v_cmd(const char *line) {
 	const struct ssymbol *sym;
 
 	while ((sym = _Sym_next(it)) != NULL)
-		if (_Sym_type(sym->module, sym->type)->op != FUNCTION
+		if (_Sym_type(sym->type)->op != FUNCTION
 		&& sym->sclass != TYPEDEF)
 			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file != 0)
-				put("p %s:%s\n", _Sym_string(sym->module, sym->file),
-					_Sym_string(sym->module, sym->name));
+				put("p %s:%s\n", _Sym_string(sym->file),
+					_Sym_string(sym->name));
 			else
-				put("p %s\n", _Sym_string(sym->module, sym->name));
+				put("p %s\n", _Sym_string(sym->name));
 	FREE(it);
 }
 
@@ -561,9 +563,9 @@ static void p_cmd(char *line) {
 		if (file == NULL) {
 			const struct ssymbol *sym;
 			while ((sym = _Sym_next(it)) != NULL)
-				if (strcmp(_Sym_string(sym->module, sym->name), name) == 0) {
+				if (strcmp(_Sym_string(sym->name), name) == 0) {
 					if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
-						put("%s:", _Sym_string(sym->module, sym->file));
+						put("%s:", _Sym_string(sym->file));
 					printsym(sym, &focus);
 					put("\n");
 					n++;
@@ -573,8 +575,8 @@ static void p_cmd(char *line) {
 			const struct ssymbol *sym;
 			while ((sym = _Sym_next(it)) != NULL)
 				if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file
-				&& strcmp(_Sym_string(sym->module, sym->file), file) == 0
-				&& strcmp(_Sym_string(sym->module, sym->name), name) == 0) {
+				&& strcmp(_Sym_string(sym->file), file) == 0
+				&& strcmp(_Sym_string(sym->name), name) == 0) {
 					put("%s:", file);
 					printsym(sym, &focus);
 					put("\n");
@@ -619,22 +621,23 @@ static void f_cmd(char *line) {
 static void docmds(void) {
 	char line[512];
 	static char help[] =
-	"b [file:]line[.character]\n"
-	"       set a breakpoint at the specified source coordinate\n"
-	"c      continue execution\n"
-	"d [n]  move down the call stack 1 frame or n frames\n"
-	"f [n]  print everything about the current frame or about frame n\n"
-	"h      print this message\n"
-	"m [n]  move to frame 0 (the top frame) or to frame n\n"
-	"p      list the visible variables as p commands\n"
-	"p {id} print the values of the listed identifiers\n"
-	"q      quit cdb and the target\n"
-	"r      remove the current breakpoint\n"
+	"b	list the breakpoints as r commands\n"
+	"b [file:][line][.character]\n"
+	"	set a breakpoint at the specified source coordinate\n"
+	"c	continue execution\n"
+	"d [n]	move down the call stack 1 frame or n frames\n"
+	"f [n]	print everything about the current frame or about frame n\n"
+	"h	print this message\n"
+	"m [n]	move to frame 0 (the top frame) or to frame n\n"
+	"p	list the visible variables as p commands\n"
+	"p {id}	print the values of the listed identifiers\n"
+	"q	quit cdb and the target\n"
+	"r	remove the current breakpoint\n"
 	"r [file:]line[.character]\n"
-	"       remove the breakpoint at the specified source coordinate\n"
-	"u [n]  move up the call stack 1 frame or n frames\n"
-	"w      display the call stack\n"
-	"!cmd   call the shell to execute cmd\n\n"
+	"	remove the breakpoint at the specified source coordinate\n"
+	"u [n]	move up the call stack 1 frame or n frames\n"
+	"w	display the call stack\n"
+	"!cmd	call the shell to execute cmd\n\n"
 	"[X] means X is optional, {X} means 0 or more Xs\n";
 
 	prompt();

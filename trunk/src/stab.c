@@ -1,8 +1,3 @@
-#include "mem.h"
-#undef NEW
-#undef NEW0
-#undef ELSE
-#undef RETURN
 #define NDEBUG
 #include "c.h"
 #undef NDEBUG
@@ -18,23 +13,22 @@ static char rcsid[] = "$Id$";
 static char *leader;
 static int maxalign;
 static Symbol module;
-static u4 uid;
-static char *filelist[32+1];
+static unsigned uid;
 static Seq_T coordList;
+static Seq_T fileList;
 static Symbol coordinates;
 static Symbol nub_bp;
 static Symbol nub_tos;
 static Symbol tos;
 struct cnst {
 	enum { cString, cType, cSymbol } tag;
-	u4 index;
+	Symbol label;
 	int length;
 	const void *ptr;
 };
-static Seq_T constantList;
 static Table_T constantTable;
-static Table_T offsets;
-static u4 constantIndex = 1;
+static Seq_T constantList;
+static Seq_T locals;
 
 /* comment - emits an assembly language comment */
 static void comment(char *fmt, ...) {
@@ -81,85 +75,77 @@ static int emit_value(int lc, Type ty, ...) {
 	return lc + ty->size;
 }
 
-/* stringindex - returns the string index of str, adding it if necessary */
-static unsigned long stringindex(const char *str) {
+/* stringindex - returns str's label, adding it if necessary */
+static Symbol stringindex(const char *str) {
 	struct cnst *p = Table_get(constantTable, str);
 
 	if (p == NULL) {
 		NEW(p, PERM);
 		p->tag = cString;
 		p->ptr = str;
-		Table_put(constantTable, str, p);
-		p->index = constantIndex;
 		p->length = strlen(str) + 1;
-		constantIndex += p->length;
+		p->label = genident(STATIC, array(chartype, p->length, 0), GLOBAL);
+		Table_put(constantTable, str, p);
 		Seq_addhi(constantList, p);
 	}
-	assert(p->index);
-	return p->index;
+	assert(p->label);
+	return p->label;
 }
 
 /* emit_string - emits the index of a string */
 static int emit_string(int lc, char *str) {
 	if (str)
-		return emit_value(lc, unsignedtype, stringindex(str));
+		return emit_value(lc, voidptype, stringindex(str));
 	else
-		return emit_value(lc, unsignedtype, 0L);
+		return emit_value(lc, voidptype, NULL);
 }
 
-/* typeindex - return the index in the constant table of type ty */
-static unsigned long typeindex(Type ty) {
+/* typeindex - returns ty's label, adding it if necessary */
+static Symbol typeindex(Type ty) {
 	struct stype stype;
 	struct cnst *p = Table_get(constantTable, ty);
 
 	if (p != NULL)
-		return p->index;
+		return p->label;
 	NEW(p, PERM);
 	p->tag = cType;
 	p->ptr = ty;
-	constantIndex = roundup(constantIndex, unsignedtype->align);
-	p->index = constantIndex;
+	p->label = genident(STATIC, array(voidptype, 0, 0), GLOBAL);
+	p->length = offsetof(struct stype, u); 
 	Table_put(constantTable, ty, p);
 	Seq_addhi(constantList, p);
-	p->length = offsetof(struct stype, u); 
 	switch (ty->op) {
 	case VOID: case FLOAT: case INT: case UNSIGNED:
-		constantIndex += p->length;
 		break;
 	case VOLATILE: case CONST+VOLATILE: case CONST:
 		p->length += sizeof stype.u.q;
-		constantIndex += p->length;
 		typeindex(ty->type);
 		break;
 	case POINTER:
 		p->length += sizeof stype.u.p;
-		constantIndex += p->length;
 		typeindex(ty->type);
 		break;
 	case ARRAY:
 		p->length += sizeof stype.u.a;
-		constantIndex += p->length;
 		typeindex(ty->type);
 		break;
-	case FUNCTION: {
-		int i;
+	case FUNCTION:
 		p->length += sizeof stype.u.f - sizeof stype.u.f.args;
-		if (ty->u.f.proto)
-			for (i = 0; ty->u.f.proto[i] != NULL; i++)
+		if (ty->u.f.proto) {
+			int i;
+			for (i = 0; ty->u.f.proto[i] != NULL; i++) {
 				p->length += sizeof stype.u.f.args;
-		constantIndex += p->length;
-		for (i = 0; ty->u.f.proto[i] != NULL; i++)
-			typeindex(ty->u.f.proto[i]);
-		break;
+				typeindex(ty->u.f.proto[i]);
+			}
 		}
+		break;
 	case STRUCT: case UNION: {
 		Field f;
 		p->length += sizeof stype.u.s - sizeof stype.u.s.fields;
-		for (f = fieldlist(ty); f != NULL; f = f->link)
+		for (f = fieldlist(ty); f != NULL; f = f->link) {
 			p->length += sizeof stype.u.s.fields;
-		constantIndex += p->length;
-		for (f = fieldlist(ty); f != NULL; f = f->link)
 			typeindex(f->type);
+		}
 		break;
 		}
 	case ENUM: {
@@ -167,12 +153,11 @@ static unsigned long typeindex(Type ty) {
 		p->length += sizeof stype.u.e - sizeof stype.u.e.enums;
 		for (i = 0; ty->u.sym->u.idlist[i] != NULL; i++)
 			p->length += sizeof stype.u.e.enums;
-		constantIndex += p->length;
 		break;
 		}
 	default:assert(0);
 	}
-	return p->index;
+	return p->label;
 }
 
 /* emit_type - emits an initialized stype structure for ty */
@@ -191,29 +176,29 @@ static void emit_type(const Type ty) {
 		break;
 	case VOLATILE: case CONST+VOLATILE: case CONST:
 	case POINTER:
-		lc = emit_value(lc, unsignedtype, typeindex(ty->type));
+		lc = emit_value(lc, voidptype, typeindex(ty->type));
 		break;
 	case ARRAY:
-		lc = emit_value(lc, unsignedtype, typeindex(ty->type));
+		lc = emit_value(lc, voidptype, typeindex(ty->type));
 		if (ty->type->size > 0)
 			lc = emit_value(lc, unsignedtype, (unsigned long)ty->size/ty->type->size);
 		else
 			lc = emit_value(lc, unsignedtype, 0UL);
 		break;
-	case FUNCTION: {
-		int i;
-		lc = emit_value(lc, unsignedtype, typeindex(ty->type), lc);
-		if (ty->u.f.proto)
+	case FUNCTION:
+		lc = emit_value(lc, voidptype, typeindex(ty->type), lc);
+		if (ty->u.f.proto) {
+			int i;
 			for (i = 0; ty->u.f.proto[i] != NULL; i++)
-				lc = emit_value(lc, unsignedtype, typeindex(ty->u.f.proto[i]));
-		break;
+				lc = emit_value(lc, voidptype, typeindex(ty->u.f.proto[i]));
 		}
+		break;
 	case STRUCT: case UNION: {
 		Field f;
 		lc = emit_string(lc, ty->u.sym->name);
 		for (f = fieldlist(ty); f; f = f->link) {
 			lc = emit_string(lc, f->name);
-			lc = emit_value(lc, unsignedtype, typeindex(f->type));
+			lc = emit_value(lc, voidptype, typeindex(f->type));
 			if (f->lsb) {
 				union offset o;
 				if (IR->little_endian) {
@@ -246,26 +231,24 @@ static void emit_type(const Type ty) {
 	lc = pad(maxalign, lc);
 }
 
-/* symbolindex - returns the constant index of sym, adding it and its predecessors, if necessary */
-static unsigned long symbolindex(const Symbol sym) {
+/* symbolindex - returns sym's label, adding it if necessary */
+static Symbol symbolindex(const Symbol sym) {
 	struct cnst *p;
 
 	if (sym == NULL)
-		return 0;
+		return NULL;
 	p = Table_get(constantTable, sym);
 	if (p == NULL) {
 		NEW(p, PERM);
 		p->tag = cSymbol;
 		p->ptr = sym;
-		Table_put(constantTable, sym, p);
-		constantIndex = roundup(constantIndex, unsignedtype->align);
-		p->index = constantIndex;
+		p->label = genident(STATIC, array(voidptype, 0, 0), GLOBAL);
 		p->length = sizeof (struct ssymbol);
-		constantIndex += p->length;
+		Table_put(constantTable, sym, p);
 		Seq_addhi(constantList, p);
 	}
-	assert(p->index);
-	return p->index;
+	assert(p->label);
+	return p->label;
 }
 
 /* up - returns p's non-external ancestor */
@@ -280,8 +263,6 @@ static Symbol up(Symbol p) {
 static void emit_symbol(Symbol p) {
 	int lc;
 
-	if (p->y.p != NULL)
-		defglobal(p->y.p, LIT);
 	switch (p->sclass) {
 	case ENUM:
 		lc = emit_value(0, inttype, (long)p->u.value);
@@ -293,16 +274,18 @@ static void emit_symbol(Symbol p) {
 		lc = emit_value(0, voidptype, p);
 		break;
 	default:
-		lc = emit_value(0, voidptype, p->scope >= PARAM ? Table_get(offsets, p) : p);
+		if (p->scope >= PARAM)
+			lc = emit_value(0, inttype, p->x.offset);
+		else
+			lc = emit_value(0, voidptype, p);
 	}
-	lc = emit_value(lc, unsignedtype, symbolindex(p));
 	lc = emit_string(lc, p->name);
 	lc = emit_string(lc, p->src.file);
 	lc = emit_value(lc, unsignedchar, (unsigned long)(p->scope > LOCAL ? LOCAL : p->scope));
 	lc = emit_value(lc, unsignedchar, (unsigned long)p->sclass);
 	lc = emit_value(lc, voidptype, module);
-	lc = emit_value(lc, unsignedtype, typeindex(p->type));
-	lc = emit_value(lc, unsignedtype, symbolindex(up(p->up)));
+	lc = emit_value(lc, voidptype, typeindex(p->type));
+	lc = emit_value(lc, voidptype, symbolindex(up(p->up)));
 	lc = pad(maxalign, lc);
 }
 
@@ -344,73 +327,56 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		Seq_free(&coordList);
 	}
 	{	/* emit files */
-		int i = 0, lc;
+		int lc, count;
 		files = genident(STATIC, array(ptr(chartype), 1, 0), GLOBAL);
 		comment("files:\n");
 		defglobal(files, LIT);
-		lc = emit_value(0, voidptype, NULL);
-		lc = pad(maxalign, lc);
-		nfiles = lc;
-		for (i = 1; filelist[i]; i++) {
-			lc = emit_value(0, voidptype, mkstr(filelist[i])->u.c.loc);
+		nfiles = 0;
+		for (count = Seq_length(fileList); count > 0; count--) {
+			lc = emit_string(0, Seq_remlo(fileList));
 			lc = pad(maxalign, lc);
 			nfiles += lc;
 		}
 		lc = emit_value(0, voidptype, NULL);
 		lc = pad(maxalign, lc);
 		nfiles += lc;
+		Seq_free(&fileList);
 	}
-	{	/* emit local offset cells */
-		int i;
-		void **offs = Table_toArray(offsets, NULL);
-		comment("offset cells:\n");
-		for (i = 0; offs[i] != NULL; i += 2) {
-			comment("%s:\n", ((Symbol)offs[i])->name);
-			defglobal(offs[i+1], DATA);
-			(*IR->space)(inttype->size);
-		}
-		FREE(offs);
-	}
-	{
+	{	/* annotate top-level symbols */
 		Symbol p;
-		if (symroot->y.p == NULL)
-			symroot->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
 		for (p = symroot; p != NULL; p = up(p->up))
 			symbolindex(p);
 	}
 	{	/* emit constants */
-		int lc;
 		consts = genident(STATIC, array(unsignedtype, 1, 0), GLOBAL);
 		comment("constants:\n");
 		defglobal(consts, LIT);
-		lc = emit_value(0, chartype, 0L);
+		nconstants = 0;
 		while (Seq_length(constantList) > 0) {
 			struct cnst *p = Seq_remlo(constantList);
+			nconstants = roundup(nconstants, p->label->type->align);
 			switch (p->tag) {
 			case cType:
-				lc = pad(unsignedtype->align, lc);
-				assert(lc == p->index);
-				comment("cType index=%d %t\n", lc, p->ptr);
+				comment("cType %t\n", p->ptr);
+				defglobal(p->label, LIT);
 				emit_type((void *)p->ptr);
 				break;
 			case cString:
-				assert(lc == p->index);
-				comment("cString index=%d \"%s\"\n", lc, p->ptr);
+				comment("cString \"%s\"\n", p->ptr);
+				defglobal(p->label, LIT);
 				(*IR->defstring)(p->length, (char *)p->ptr);
 				break;
 			case cSymbol: {
 				const Symbol q = (void *)p->ptr;
-				lc = pad(unsignedtype->align, lc);
-				assert(lc == p->index);
-				comment("cSymbol index=%d %s\n", lc, typestring(q->type, q->name));
+				defglobal(p->label, LIT);
+				comment("cSymbol %s\n", typestring(q->type, q->name));
 				emit_symbol(q);
 				break;
 				}
 			default: assert(0);
 			}
-			lc += p->length;
+			nconstants += p->length;
 		}
-		nconstants = pad(maxalign, lc);
 		Seq_free(&constantList);
 	}
 	{	/* emit module */
@@ -420,14 +386,14 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = emit_value( 0, unsignedtype, (unsigned long)uid);
 		lc = emit_value( 0, voidptype, coordinates);
 		lc = emit_value(lc, voidptype, files);
-		lc = emit_value(lc, voidptype, symroot->y.p);
-		lc = emit_value(lc, unsignedtype, (unsigned long)nconstants);
+		lc = emit_value(lc, voidptype, symbolindex(symroot));
+		lc = emit_value(lc, unsignedtype, (long)nconstants);
 		lc = emit_value(lc, voidptype, consts);
 		lc = pad(maxalign, lc);
 		nmodules = lc;
 	}
-	Table_free(&offsets);
 	Table_free(&constantTable);
+	Seq_free(&locals);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x
 	{
 		int total = 0;
@@ -439,19 +405,17 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 	}
 #undef printit
 }
-/* fileindex - returns the index in filelist of name, adding it if necessary */
-static int fileindex(char *name) {
-	int i;
 
-	if (name == NULL)
-		return 0;
-	for (i = 1; filelist[i]; i++)
-		if (filelist[i] == name)
+/* fileindex - returns the index in fileList of name, adding it if necessary */
+static int fileindex(char *name) {
+	int i, count;
+
+	count = Seq_length(fileList);
+	for (i = 0; i < count; i++)
+		if (Seq_get(fileList, i) == name)
 			return i;
-	if (i >= NELEMS(filelist)-1)
-		return 0;
-	filelist[i] = name;
-	return i;
+	Seq_addhi(fileList, name);
+	return count;
 }
 
 /* tail - returns the current tail of the symbol table */
@@ -459,13 +423,9 @@ static Symbol tail(void) {
 	Symbol p = allsymbols(identifiers);
 
 	p = up(p);
-	if (p) {
-		if (p->y.p == NULL) {
-			p->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
-			symbolindex(p);
-		}
-		return p->y.p;
-	} else
+	if (p)
+		return symbolindex(p);
+	else
 		return NULL;
 }
 
@@ -495,21 +455,7 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 
 /* setoffset - emits code to set the offset field for p */
 static void setoffset(Symbol p, void *tos) {
-	Symbol off = Table_get(offsets, p);
-
-	if (off == NULL) {
-		off = genident(STATIC, inttype, GLOBAL);
-		Table_put(offsets, p, off);
-	}
-	if (p->y.p == NULL) {
-		p->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
-		symbolindex(p);
-	}
-	walk(asgntree(ASGN,
-		idtree(off),
-		(*optree['-'])(SUB,
-			cast(isarray(p->type) ? pointer(idtree(p)) : lvalue(idtree(p)), ptr(chartype)),
-			cast(lvalue(idtree(tos)), ptr(chartype)))), 0, 0);
+	Seq_addhi(locals, p);
 	p->addressed = 1;
 }
 
@@ -547,7 +493,7 @@ static void entry_hook(void *cl, Symbol cfunc) {
 	*/
 #define set(name,e) walk(asgntree(ASGN,field(lvalue(idtree(tos)),string(#name)),(e)),0,0)
 	set(down,       idtree(nub_tos));
-	set(func,       idtree(mkstr(cfunc->name)->u.c.loc));
+	set(func,       idtree(stringindex(cfunc->name)));
 	set(module,     idtree(module));
 	set(tail,       cnsttree(voidptype, (void*)0));
 #undef set
@@ -561,8 +507,14 @@ static void block_hook(void *cl, Symbol *p) {
 		setoffset(*p++, tos);
 }
 
-/* exit_hook - called at function exit */
-static void exit_hook(void *cl, Symbol cfunc) {
+/* stabfend - called at end end of compiling a function */
+static void stabfend(Symbol cfunc, int lineno) {
+	int count = Seq_length(locals);
+
+	for ( ; count > 0; count--) {
+		Symbol p = Seq_remlo(locals);
+		p->x.offset -= tos->x.offset;
+	}
 	tos = NULL;
 }
 
@@ -607,7 +559,9 @@ static void stabinit(char *file, int argc, char *argv[]) {
 		leader = " #";  /* it's a MIPS or ALPHA */
 	constantTable = Table_new(0, NULL, NULL);
 	constantList = Seq_new(0);
-	offsets = Table_new(0, NULL, NULL);
+	fileList = Seq_new(0);
+	Seq_addhi(fileList, NULL);
+	locals = Seq_new(0);
 	uid = time(NULL)<<7|getpid();
 	module = mksymbol(AUTO,	stringf("_module__V%x", uid), array(unsignedtype, 0, 0));
 	module->generated = 1;
@@ -618,7 +572,6 @@ static void stabinit(char *file, int argc, char *argv[]) {
 	attach((Apply) point_hook, NULL, &events.points);
 	attach((Apply)  call_hook, NULL, &events.calls);
 	attach((Apply)return_hook, NULL, &events.returns);
-	attach((Apply)  exit_hook, NULL, &events.exit);
 	nub_bp = mksymbol(EXTERN, "_Nub_bp", ftype(voidtype, inttype));
 	nub_bp->defined = 0;
 	nub_tos = mksymbol(EXTERN, "_Nub_tos", voidptype);
@@ -638,7 +591,7 @@ void zstab_init(int argc, char *argv[]) {
 			IR->stabinit  = stabinit;
 			IR->stabend   = stabend;
 			IR->stabblock = 0;
-			IR->stabfend  = 0;
+			IR->stabfend  = stabfend;
 			IR->stabline  = 0;
 			IR->stabsym   = 0;
 			IR->stabtype  = 0;
