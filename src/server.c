@@ -22,7 +22,6 @@ static void sendout(int op, const void *buf, int size) {
 	sendmsg(out, &msg, sizeof msg);
 	if (size > 0) {
 		assert(buf);
-		tracemsg("%s: sending %d bytes\n", identity, size);
 		sendmsg(out, buf, size);
 	}
 }
