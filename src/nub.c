@@ -62,7 +62,7 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 	frameno = 0;
 	state = z;
 	state.context = _Nub_modules;
-	state.fp = _Nub_bpflags;
+	state.fp = NULL;
 	update();
 	startup(state);
 }
