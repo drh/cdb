@@ -17,7 +17,7 @@ packing.lst
 makefile
 
 lookup.[ch] wf.c
-	sample problem described in "A Machine-Independent Debugger".
+	sample program described in "A Machine-Independent Debugger".
 
 src/*.[ch]
 	source code for cdb, the nub, the RPC code, the prelinker
@@ -33,14 +33,14 @@ startup/{*.o,*.obj}
 Differences
 ~~~~~~~~~~~
 "A Machine-Independent Debugger" describes the initial version of
-cdb.  http://www.cs.princeton.edu/software/lcc/cdb/2.x.html describes
-the differences between the initial version and version 2.2.  The
+cdb. http://www.cs.princeton.edu/software/lcc/cdb/2.x.html describes
+the differences between the initial version and version 2.2. The
 list below summarizes the differences between this
 implementation--version 3.1--and cdb 2.2.
 
 + This version works only with lcc 4.1, and it requires the ASDL
-generator (http://www.cs.princeton.edu/zephyr/ASDL/), and the C
-Interfaces and Implementations (CII) library
+generator, asdlGen (http://www.cs.princeton.edu/zephyr/ASDL/), and
+the C Interfaces and Implementations (CII) library
 (http://www.cs.princeton.edu/software/cii/).
 
 + Only the two-process version is supported. cdb is the server and
@@ -60,10 +60,9 @@ array of addresses of globals and statics, which is stored in
 read-only memory.
 
 + _Nub_bp takes only one argument, the index of the stopping point i,
-and switches to the debugger if _Nub_bpflags[i] is nonzero. The
-debugger determines if a breakpoint i is set i the module that caused
-the switch; if no breakpoint is set, control is returned to the
-client.
+and switches to cdb if _Nub_bpflags[i] is nonzero. cdb determines if
+a breakpoint i is set i the module that caused the switch; if no
+breakpoint is set, control is returned to the client.
 
 Installation
 ~~~~~~~~~~~~
@@ -82,17 +81,17 @@ library (http://www.cs.princeton.edu/software/cii/).
 
 2. Create a file, custom.mk, that redefines the definitions at the
 top of the makefile to suit your local configuration. Make sure
-BUILDDIR points to the lcc 4.1 build directory and ASDL_HOME points
-to the root of the asdlGen installation.
+BUILDDIR points to the lcc 4.1 build directory (or a copy of it) and
+ASDL_HOME points to the root of the asdlGen installation.
 
 3. Edit etc/solaris.c or etc/linux.c (or a copy) to suit your local
 configuration, and set HOSTNAME to the name of the appropriate file
-in custom.mk.  These files are variants of the driver back ends
+in custom.mk. These files are variants of the driver back ends
 included in the lcc 4.1 distribution. They support the -Wo-g4 option,
 which causes lcc to emit cdb-style symbol tables as ASDL pickles.
 
-4. Linux doesn't have -lsocket (the socket library), so redefine LIBS
-in custom.mk, e.g., I use
+4. Linux doesn't have -lsocket (the socket library), so, if you're
+running on Linux, redefine LIBS in custom.mk; e.g., I use
 
 	LIBS=-lasdl -lcii -lnsl
 
@@ -116,7 +115,19 @@ same C compiler you used to build lcc.
 
 Notice that the name of the installed startup code is always startup.o.
 
-7. Test the two-process version of cdb. Build the sample program with
+7. Test the single-process version of cdb by building the sample program:
+
+	1% make CUSTOM=custom.mk stubtest
+
+Then run a.out:
+
+	1% a.out
+	cdb> 
+
+The documentation in "A Machine-Independent Debugger" applies; the
+"h" command summarizes the commands.
+
+8. Test the two-process version of cdb. Build the sample program with
 
 	1% make CUSTOM=custom.mk test
 
@@ -136,13 +147,11 @@ In the cdb window, you should see something like:
 	/u/drh/pkg/4.1/sparc-solaris/cdb: now serving 127.0.0.1:47632
 	cdb>
 
-The documentation in "A Machine-Independent Debugger" applies; the
-"h" command summarizes the commands. When you exit the client, cdb
-waits for another connection.
+When you exit the client, cdb waits for another connection.
 
-8. "make CUSTOM=custom.mk clean" cleans up.
+9. "make CUSTOM=custom.mk clean" cleans up.
 
-9. (Optional) Add a link to cdb from /usr/local/bin, e.g.,
+10. (Optional) Add a link to cdb from /usr/local/bin, e.g.,
 
 	1% ln -s ${BUILDDIR}/cdb /usr/local/bin/cdb
 
