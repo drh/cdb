@@ -649,7 +649,8 @@ static void docmds(void) {
 	"u [n]	move up the call stack 1 frame or n frames\n"
 	"w	display the call stack\n"
 	"!cmd	call the shell to execute cmd\n\n"
-	"[X] means X is optional, {X} means 0 or more Xs\n";
+	"[X] means X is optional, {X} means 0 or more Xs\n"
+	"$Id$" "\n";
 
 	prompt();
 	while (fgets(line, (int)sizeof line, in) != NULL) {
