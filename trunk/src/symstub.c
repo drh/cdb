@@ -4,6 +4,7 @@
 
 static char rcsid[] = "$Id$";
 
+void _Sym_init(void) {}
 struct ssymbol *_Sym_symbol(void *sym) { return sym; }
 struct stype *_Sym_type(void *type) { return type; }
 char *_Sym_string(void *str) { return str; }
