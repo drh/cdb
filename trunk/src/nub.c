@@ -6,8 +6,6 @@
 
 static char rcsid[] = "$Id";
 
-extern struct module *_Nub_modules[];
-
 struct sframe *_Nub_tos;
 
 static Nub_callback_T faulthandler;
@@ -124,30 +122,6 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 	for (i = 0; (m = _Nub_modules[i]) != NULL; i++) {
 		struct ssymbol *sp = m->link;
 		assert(sp);
-		{	/* print m's files and top-level symbols */
-			int i;
-			struct ssymbol *p; 
-			for (i = 1; m->files[i]; i++)
-				fprintf(stderr, " %s", m->files[i]);
-			if ((p = m->link->uplink) != NULL) {
-				fprintf(stderr, ":");
-				for ( ; p; p = p->uplink)
-					fprintf(stderr, " %s", p->name);
-			}
-			fprintf(stderr, "\n");
-		}
-		{	/* print m's coordinates */
-			int i;
-			union scoordinate w;
-			for (i = 1; (w = m->coordinates[i]).i; i++) {
-				int i;
-				short x, y;
-				unpack(w, &i, &x, &y);
-				if (i > 0 && m->files[i])
-					fprintf(stderr, "%s:", m->files[i]);
-				fprintf(stderr, "%d.%d\n", y, x);
-			}
-		}
 		while (sp->uplink)
 			sp = sp->uplink;
 		if (sp != m->link) {
