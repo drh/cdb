@@ -9,10 +9,10 @@ struct module {
 };
 
 struct sframe {
-        struct sframe *up, *down;
-        int func;
-        int module;
-        int ip;
+	struct sframe *up, *down;
+	int func;
+	int module;
+	int ip;
 };
 
 #endif
