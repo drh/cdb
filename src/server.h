@@ -23,6 +23,11 @@ typedef enum {		/* messages */
 #undef xx
 } Header_T;
 
+struct nub_set {
+	int module;
+	int index;
+};
+
 struct nub_fetch {
 	int space;
 	const void *address;

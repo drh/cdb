@@ -12,7 +12,7 @@ struct module {
 struct sframe {
         struct sframe *up, *down;
         int func;
-        struct module *module;
+        int module;
         int ip;
 };
 

@@ -59,6 +59,7 @@ static void put(char *fmt, ...) {
 }
 
 static void tput(const void *type) {
+#if 0
 	const struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
 
@@ -148,6 +149,7 @@ static void tput(const void *type) {
 #undef xx
 	default:assert(0);
 	}
+#endif
 }
 
 static void sput(char *address, int max) {
@@ -170,6 +172,7 @@ static void sput(char *address, int max) {
 }
 
 static void vput(const void *type, char *address) {
+#if 0
 	const struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
 
@@ -316,7 +319,7 @@ static void vput(const void *type, char *address) {
 #undef xx
 	default:assert(0);
 	}
-	
+#endif
 }
 
 static void prompt(void) {
@@ -324,43 +327,31 @@ static void prompt(void) {
 	fflush(out);
 }
 
-static void printsym(const struct ssymbol *sym, Nub_state_T *frame) {
-	const char *name;
-
+static void printsym(const sym_symbol_ty sym, Nub_state_T *frame) {
 	assert(sym);
-	name = _Sym_string(sym->name);
-	switch (sym->sclass) {
-	case ENUM:
-		put("%s=%d", name, sym->u.value);
+	switch (sym->kind) {
+	case sym_ENUMCONST_enum:
+		put("%s=%d", sym->id, sym->v.sym_ENUMCONST.value);
 		break;
-	case TYPEDEF:
-		put("%s is a typedef for ", name);
+	case sym_TYPEDEF_enum:
+		put("%s is a typedef for ", sym->id);
 		tput(sym->type);
 		break;
-	case EXTERN: case STATIC:
-		assert(sym->u.address);
-		put("%s@0x%x=", name, sym->u.address);
-		vput(sym->type, sym->u.address);
+	case sym_STATIC_enum:
+		put("%s@0x%x=", sym->id, sym->v.sym_STATIC.index);	/* FIXME */
+		/* vput(sym->type, sym->u.address); FIXME */
 		break;
-	default: {
-		void *addr;
-		if (sym->scope >= PARAM) {
-			assert(sym->u.offset);
-			addr = frame->fp + sym->u.offset;
-		} else {
-			assert(sym->u.address);
-			addr = sym->u.address;
-		}
-		put("%s@0x%x=", name, addr);
-		vput(sym->type, addr);
-		}
+	case sym_AUTO_enum:
+		put("%s@0x%x=", name, frame->fp + sym->v.sym_AUTO.offset);
+		vput(sym->type, frame->fp + sym->v.sym_AUTO.offset);
+	default: assert(0);
 	}
 }
 
-static void printparam(const struct ssymbol *sym, Nub_state_T *frame) {
+static void printparam(const sym_symbol_ty sym, Nub_state_T *frame) {
 	if (sym->uplink) {
-		const struct ssymbol *next = _Sym_symbol(sym->uplink);
-		if (next->scope == PARAM) {
+		const sym_symbol_ty next = _Sym_symbol(sym->module, sym->uplink);
+		if (next->kind == sym_AUTO_enum) {
 			printparam(next, frame);
 			put(",");
 		}
