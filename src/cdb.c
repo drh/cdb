@@ -40,7 +40,7 @@ static void put(char *fmt, ...) {
 	va_end(ap);
 }
 
-static void tput(void *type) {
+static void tput(void *module, void *type) {
 	struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
 
@@ -50,24 +50,24 @@ static void tput(void *type) {
 			put("const ");
 		if (ty->op == VOLATILE || ty->op == CONST+VOLATILE)
 			put("volatile ");
-		tput(ty->u.q.type);
+		tput(module, ty->u.q.type);
 		break;
 	case POINTER: {
 		struct stype *rty = _Sym_type(ty->u.p.type);
 		if (rty->op == STRUCT)
-			put("struct %s ", _Sym_string(rty->u.s.tag));
+			put("struct %s ", _Sym_string(module, rty->u.s.tag));
 		else if (rty->op == UNION)
-			put("union %s ", _Sym_string(rty->u.s.tag));
+			put("union %s ", _Sym_string(module, rty->u.s.tag));
 		else if (rty->op != POINTER) {
-			tput(ty->u.p.type);
+			tput(module, ty->u.p.type);
 			put(" ");
 		} else
-			tput(ty->u.p.type);
+			tput(module, ty->u.p.type);
 		put("*");
 		break;
 		}
 	case ARRAY:
-		tput(ty->u.a.type);
+		tput(module, ty->u.a.type);
 		if (ty->u.a.nelems > 0)
 			put("[%d]", ty->u.a.nelems);
 		else
@@ -75,12 +75,12 @@ static void tput(void *type) {
 		break;
 	case FUNCTION: {
 		int i;
-		tput(ty->u.f.type);
+		tput(module, ty->u.f.type);
 		put(" (");
 		for (i = 0; (void *)&ty->u.f.args[i] < end; i++) {
 			if (i > 0)
 				put(",");
-			tput(ty->u.f.args[i]);
+			tput(module, ty->u.f.args[i]);
 		}
 		put(")");
 		break;
@@ -89,21 +89,21 @@ static void tput(void *type) {
 	case UNION: {
 		int i;
 		put("%s %s { ", ty->op == STRUCT ? "struct" : "union",
-			_Sym_string(ty->u.s.tag));
+			_Sym_string(module, ty->u.s.tag));
 		for (i = 0; (void *)&ty->u.s.fields[i] < end; i++) {
-			tput(ty->u.s.fields[i].type);
-			put(" %s; ", _Sym_string(ty->u.s.fields[i].name));
+			tput(module, ty->u.s.fields[i].type);
+			put(" %s; ", _Sym_string(module, ty->u.s.fields[i].name));
 		}
 		put("}");
 		break;
 		}
 	case ENUM: {
 		int i;
-		put("enum %s {", _Sym_string(ty->u.s.tag));
+		put("enum %s {", _Sym_string(module, ty->u.s.tag));
 		for (i = 0; (void *)&ty->u.e.enums[i] < end; i++) {
 			if (i > 0)
 				put(",");
-			put("%s=%d", _Sym_string(ty->u.e.enums[i].name), ty->u.e.enums[i].value);
+			put("%s=%d", _Sym_string(module, ty->u.e.enums[i].name), ty->u.e.enums[i].value);
 		}
 		put("}");
 		break;
@@ -151,7 +151,7 @@ static void sput(char *address, int max) {
 	put("...");
 }
 
-static void vput(void *type, char *address) {
+static void vput(void *module, void *type, char *address) {
 	struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
 
@@ -161,12 +161,12 @@ static void vput(void *type, char *address) {
 	}
 	switch (ty->op) {
 	case CONST: case VOLATILE: case CONST+VOLATILE:
-		vput(ty->u.q.type, address);
+		vput(module, ty->u.q.type, address);
 		break;
 	case POINTER: case FUNCTION: {
 		void *p;
 		put("(");
-		tput(type);
+		tput(module, type);
 		put(")");
 		getvalue(DATA, address, &p, ty->size);
 		put("0X%x", p);
@@ -188,7 +188,7 @@ static void vput(void *type, char *address) {
 			put("{");
 			for (i = 0; i < (int)ty->u.a.nelems - 1; ) {
 				put("\n [%d]=", i);
-				vput(ty->u.a.type, address);
+				vput(module, ty->u.a.type, address);
 				getvalue(DATA, address, prev, size);
 				while (++i < (int)ty->u.a.nelems - 1) {
 					address += size;
@@ -198,16 +198,16 @@ static void vput(void *type, char *address) {
 				}
 			}
 			put("\n [%d]=", i);
-			vput(ty->u.a.type, address);
+			vput(module, ty->u.a.type, address);
 			put("\n}");
 		} else if (ty->u.a.nelems > 0) {
 			int i;
 			put("{");
-			vput(ty->u.a.type, address);
+			vput(module, ty->u.a.type, address);
 			for (i = 1; i < (int)ty->u.a.nelems; i++) {
 				put(",");
 				address = (char *)address + size;
-				vput(ty->u.a.type, address);
+				vput(module, ty->u.a.type, address);
 			}
 			put("}");
 		} else
@@ -220,7 +220,7 @@ static void vput(void *type, char *address) {
 		for (i = 0; (void *)&ty->u.s.fields[i] < end; i++) {
 			if (i > 0)
 				put(",");
-			put("%s=", _Sym_string(ty->u.s.fields[i].name));
+			put("%s=", _Sym_string(module, ty->u.s.fields[i].name));
 			if (ty->u.s.fields[i].u.offset < 0) {
 				unsigned buf, off;
 				int size, lsb;
@@ -242,7 +242,7 @@ static void vput(void *type, char *address) {
 				else
 					put("%d", size == 8*sizeof buf ? buf : (~0UL<<size)|buf);
 			} else
-				vput(ty->u.s.fields[i].type, (char *)address + ty->u.s.fields[i].u.offset);
+				vput(module, ty->u.s.fields[i].type, (char *)address + ty->u.s.fields[i].u.offset);
 		}
 		put("}");
 		break;
@@ -252,10 +252,10 @@ static void vput(void *type, char *address) {
 		getvalue(DATA, address, &value, ty->size);
 		for (i = 0; (void *)&ty->u.e.enums[i] < end; i++)
 			if (ty->u.e.enums[i].value == value) {
-				put("%s", _Sym_string(ty->u.e.enums[i].name));
+				put("%s", _Sym_string(module, ty->u.e.enums[i].name));
 				return;
 			}
-		put("(enum %s)%d", _Sym_string(ty->u.s.tag), value);
+		put("(enum %s)%d", _Sym_string(module, ty->u.s.tag), value);
 		break;
 		}
 	case VOID:      put("void"); break;
@@ -307,19 +307,22 @@ static void prompt(void) {
 }
 
 static void printsym(struct ssymbol *sym, Nub_state_T *frame) {
+	const char *name;
+
 	assert(sym);
+	name = _Sym_string(sym->module, sym->name);
 	switch (sym->sclass) {
 	case ENUM:
-		put("%s=%d", sym->name, sym->offset);
+		put("%s=%d", name, sym->offset);
 		break;
 	case TYPEDEF:
-		put("%s is a typedef for ", sym->name);
-		tput(sym->type);
+		put("%s is a typedef for ", name);
+		tput(sym->module, sym->type);
 		break;
 	case EXTERN: case STATIC:
 		assert(sym->address);
-		put("%s@0x%x=", sym->name, sym->address);
-		vput(sym->type, sym->address);
+		put("%s@0x%x=", name, sym->address);
+		vput(sym->module, sym->type, sym->address);
 		break;
 	default: {
 		void *addr;
@@ -330,8 +333,8 @@ static void printsym(struct ssymbol *sym, Nub_state_T *frame) {
 			assert(sym->address);
 			addr = sym->address;
 		}
-		put("%s@0x%x=", sym->name, addr);
-		vput(sym->type, addr);
+		put("%s@0x%x=", name, addr);
+		vput(sym->module, sym->type, addr);
 		}
 	}
 }
@@ -520,9 +523,10 @@ static void v_cmd(char *line) {
 		sym = _Sym_symbol(context);
 		if (sym->name && _Sym_type(sym->type)->op != FUNCTION && sym->sclass != TYPEDEF)
 			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
-				put("p %s:%s\n", sym->file, sym->name);
+				put("p %s:%s\n", _Sym_string(sym->module, sym->file),
+				    _Sym_string(sym->module, sym->name));
 			else
-				put("p %s\n", sym->name);
+				put("p %s\n", _Sym_string(sym->module, sym->name));
 	}
 }
 
@@ -548,7 +552,7 @@ static void p_cmd(char *line) {
 		*p++ = 0;
 		if (file == NULL && (sym = _Sym_find(name, focus.context)) != NULL) {
 			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
-				put("%s:", sym->file);
+				put("%s:", _Sym_string(sym->module, sym->file));
 			printsym(sym, &focus);
 			put("\n");
 		} else if (file) {
@@ -556,9 +560,9 @@ static void p_cmd(char *line) {
 			void *context;
 			for (context = focus.context; context; context = sym->uplink) {
 				sym = _Sym_symbol(context);
-				if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file
-				&& strcmp(sym->file, file) == 0
-				&& sym->name && strcmp(sym->name, name) == 0) {
+				if (sym->sclass == STATIC && sym->scope == GLOBAL
+				&& sym->file && strcmp(_Sym_string(sym->module, sym->file), file) == 0
+				&& sym->name && strcmp(_Sym_string(sym->module, sym->name), name) == 0) {
 					put("%s:", file);
 					printsym(sym, &focus);
 					put("\n");
