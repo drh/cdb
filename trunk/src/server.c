@@ -32,7 +32,7 @@ int _Nub_frame(int n, Nub_state_T *state) {
 	recvmesg(in, &args, sizeof args);
 	if (args.n >= 0)
 		memcpy(state, &args.state, sizeof args.state);
-	_Nub_state(state);
+	_Nub_state(state, NULL);
 	return args.n;
 }
 
@@ -51,12 +51,11 @@ void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
 		switch (msg) {
 		case NUB_BREAK:
 			recvmesg(in, &state, sizeof state);
-			_Nub_state(&state);
 			(*breakhandler)(state);
 			break;
 		case NUB_FAULT:
 			recvmesg(in, &state, sizeof state);
-			_Nub_state(&state);
+			_Nub_state(&state, NULL);
 			fault(state);
 			break;
 		case NUB_QUIT: return;

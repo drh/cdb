@@ -21,7 +21,7 @@ typedef void (*Nub_callback_T)(Nub_state_T state);
 extern struct module *_Nub_modules[];
 extern char _Nub_bpflags[];
 extern struct sframe *_Nub_tos;
-extern void _Nub_state(Nub_state_T *state);
+extern void _Nub_state(Nub_state_T *state, struct sframe *f);
 
 extern void _Nub_init(Nub_callback_T startup, Nub_callback_T fault);
 extern void _Nub_bp(int index);
