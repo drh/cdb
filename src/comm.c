@@ -7,8 +7,8 @@
 static char rcsid[] = "$Id$";
 
 #ifdef unix
-extern int read(int, char *, int);
-extern int write(int, char *, int);
+extern int read(int, void *, int);
+extern int write(int, const void *, int);
 #else
 #define read(fd,buf,len) recv(fd,buf,len,0)
 #define write(fd,buf,len) send(fd,buf,len,0)
@@ -17,7 +17,7 @@ extern int write(int, char *, int);
 int trace = 0;
 const char *identity = "";
 
-const char *msgname(Header_T msg) {
+const char *mesgname(Header_T msg) {
 	static char buf[120], *names[] = {
 #define xx(name) #name,
 	messagecodes
@@ -30,7 +30,7 @@ const char *msgname(Header_T msg) {
 	return buf;
 }
 
-void tracemsg(const char *fmt, ...) {
+void tracemesg(const char *fmt, ...) {
 	if (trace) {
 		va_list ap;
 		va_start(ap, fmt);
@@ -40,22 +40,22 @@ void tracemsg(const char *fmt, ...) {
 	}
 }
 
-void recvmsg(SOCKET s, void *buf, int size) {
+void recvmesg(SOCKET s, void *buf, int size) {
 	int n;
 
 	n = read(s, buf, size);
-	tracemsg("%s: received %d bytes\n", identity, n);
+	tracemesg("%s: received %d bytes\n", identity, n);
 	if (n != size)
-		tracemsg("%s: **expected %d bytes\n", identity, size);
+		tracemesg("%s: **expected %d bytes\n", identity, size);
 	assert(n == size);
 }
 
-void sendmsg(SOCKET s, const void *buf, int size) {
+void sendmesg(SOCKET s, const void *buf, int size) {
 	int n;
 
-	tracemsg("%s: sending %d bytes\n", identity, size);
+	tracemesg("%s: sending %d bytes\n", identity, size);
 	n = write(s, buf, size);
 	if (n != size)
-		tracemsg("%s: **expected %d bytes\n", identity, size);
+		tracemesg("%s: **expected %d bytes\n", identity, size);
 	assert(n == size);
 }
