@@ -1,197 +1,201 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include "server.h"
-#include "mem.h"
-#include "seq.h"
+#include <errno.h>
+#include "comm.h"
+
+#ifdef unix
+static int WSAGetLastError(void) {
+	return errno;
+}
+#endif
 
 static char rcsid[] = "$Id$";
 
-extern int read(int, char *, int);
-extern int write(int, char *, int);
-extern int pipe(int []);
-extern int close(int);
-extern int fork(void);
-extern int execl(char *, char *, ...);
+static SOCKET in, out;
 
-static int in, out, trace;
+static char *stringf(const char *fmt, ...) {
+	static char buf[1024];
+	va_list ap;
+	int n;
 
-static Nub_callback_T breakhandler;
-
-static char *msgname(Header_T msg) {
-	static char buf[120], *names[] = {
-#define xx(name) #name,
-	messagecodes
-#undef xx
-	};
-	if (msg >= 0 && msg < sizeof names/sizeof names[0])
-		return names[msg];
-	else
-		sprintf(buf, "unknown message %d", msg);
+	va_start(ap, fmt);
+	n = vsprintf(buf, fmt, ap);
+	va_end(ap);
 	return buf;
 }
 
-static void tracemsg(char *fmt, ...) {
-	if (trace) {
-		va_list ap;
-		va_start(ap, fmt);
-		vfprintf(stderr, fmt, ap);
-		va_end(ap);
-		trace--;
-	}
+static void sendeach(int i, Nub_coord_T *src, void *cl) {
+	sendmsg(out, src, *(int *)cl);
 }
 
-static void recv(void *buf, int size) {
-	int n;
+static void swtch(void);
 
-	n = read(in, buf, size);
-	tracemsg("client: received %d bytes\n", n);
-	assert(n == size);
+static void onbreak(Nub_state_T state) {
+	Header_T msg = NUB_BREAK;
+
+	assert(out);
+	tracemsg("%s: sending %s\n", identity, msgname(msg));
+	sendmsg(out, &msg, sizeof msg);
+	sendmsg(out, &state, sizeof state);
+	swtch();
 }
 
-static void send(int op, void *buf, int size) {
-	int n;
-	Header_T msg;
-
-	msg = op;
-	tracemsg("client: sending %s\n", msgname(msg));
-	n = write(out, (void*)&msg, sizeof msg);
-	assert(n == sizeof msg);
-	if (size > 0) {
-		assert(buf);
-		tracemsg("client: sending %d bytes\n", size);
-		n = write(out, buf, size);
-		assert(n == size);
-	}
-}
-
-static void cleanup(void) {
-	if (out)
-		send(NUB_QUIT, NULL, 0);
-}
-
-void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
-	Header_T msg;
-	Nub_state_T state;
-	char *s;
-
-	atexit(cleanup);
-	if ((s = getenv("TRACE")) != NULL)
-		trace = atoi(s);
-	recv(&msg, sizeof msg);
-	assert(msg == NUB_STARTUP);
-	recv(&state, sizeof state);
-	startup(state);
+static void swtch(void) {
 	for (;;) {
-		send(NUB_CONTINUE, NULL, 0);
-		recv(&msg, sizeof msg);
+		Header_T msg;
+		recvmsg(in, &msg, sizeof msg);
+		tracemsg("%s: switching on %s\n", identity, msgname(msg));
 		switch (msg) {
-		case NUB_BREAK:
-			recv(&state, sizeof state);
-			(*breakhandler)(state);
+		case NUB_CONTINUE: return;
+		case NUB_QUIT: out = 0; exit(EXIT_FAILURE); break;
+		case NUB_SET: {
+			Nub_coord_T args;
+			recvmsg(in, &args, sizeof args);
+			_Nub_set(args, onbreak);
 			break;
-		case NUB_FAULT:
-			recv(&state, sizeof state);
-			fault(state);
+		}
+		case NUB_REMOVE: {
+			Nub_coord_T args;
+			recvmsg(in, &args, sizeof args);
+			_Nub_remove(args);
 			break;
-		case NUB_QUIT: out = 0; return;
+		}
+		case NUB_FETCH: {
+			int nbytes;
+			char buf[1024];
+			struct nub_fetch args;
+			recvmsg(in, &args, sizeof args);
+			if (args.nbytes > sizeof buf)
+				args.nbytes = sizeof buf;
+			nbytes = _Nub_fetch(args.space, args.address, buf, args.nbytes);
+			sendmsg(out, &nbytes, sizeof nbytes);
+			sendmsg(out, buf, nbytes);
+			break;
+		}
+		case NUB_STORE: {
+			struct nub_store args;
+			recvmsg(in, &args, sizeof args);
+			args.nbytes = _Nub_store(args.space, args.address, args.buf, args.nbytes);
+			sendmsg(out, &args.nbytes, sizeof args.nbytes);
+			break;
+		}
+		case NUB_FRAME: {
+			struct nub_frame args;
+			recvmsg(in, &args, sizeof args);
+			args.n = _Nub_frame(args.n, &args.state);
+			sendmsg(out, &args, sizeof args);
+			break;
+		}
+		case NUB_SRC: {
+			Nub_coord_T src;
+			int size = sizeof src;
+			recvmsg(in, &src, sizeof src);
+			_Nub_src(src, sendeach, &size);
+			src.y = 0;
+			sendmsg(out, &src, sizeof src);
+			break;
+		}
 		default: assert(0);
 		}
 	}
 }
 
-Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
-	Nub_callback_T prev = breakhandler;
+static int connectto(const char *host, short port) {
+	struct sockaddr_in server, client;
+	struct hostent *hp;
+	int len;
+	unsigned long inaddr;
 
-	breakhandler = onbreak;
-	send(NUB_SET, &src, sizeof src);
-	return prev;
-}
-
-Nub_callback_T _Nub_remove(Nub_coord_T src) {
-	send(NUB_REMOVE, &src, sizeof src);
-	return breakhandler;
-}
-
-int _Nub_fetch(int space, void *address, void *buf, int nbytes) {
-	struct nub_fetch args;
-
-	args.space = space;
-	args.address = address;
-	args.nbytes = nbytes;
-	send(NUB_FETCH, &args, sizeof args);
-	recv(&args.nbytes, sizeof args.nbytes);
-	recv(buf, args.nbytes);
-	return args.nbytes;
-}
-
-int _Nub_store(int space, void *address, void *buf, int nbytes) {
-	struct nub_store args;
-
-	args.space = space;
-	args.address = address;
-	args.nbytes = nbytes;
-	assert(nbytes <= sizeof args.buf);
-	memcpy(args.buf, buf, nbytes);
-	send(NUB_STORE, &args, sizeof args);
-	recv(&args.nbytes, sizeof args.nbytes);
-	return args.nbytes;
-}
-
-int _Nub_frame(int n, Nub_state_T *state) {
-	struct nub_frame args;
-
-	args.n = n;
-	send(NUB_FRAME, &args, sizeof args);
-	recv(&args, sizeof args);
-	if (args.n >= 0)
-		memcpy(state, &args.state, sizeof args.state);
-	return args.n;
-}
-
-void _Nub_src(Nub_coord_T src,
-	void apply(int i, Nub_coord_T *src, void *cl), void *cl) {
-	int i = 0, n;
-	static Seq_T srcs;
-
-	if (srcs == NULL)
-		srcs = Seq_new(0);
-	n = Seq_length(srcs);
-	send(NUB_SRC, &src, sizeof src);
-	recv(&src, sizeof src);
-	while (src.y) {
-		Nub_coord_T *p;
-		if (i < n)
-			p = Seq_get(srcs, i);
-		else {
-			Seq_addhi(srcs, NEW(p));
-			n++;
-		}
-		*p = src;
-		i++;
-		recv(&src, sizeof src);
+	in = socket(AF_INET, SOCK_STREAM, 0);
+	if (in == SOCKET_ERROR) {
+		perror(stringf("%s: socket (%d)", identity, WSAGetLastError()));
+		return EXIT_FAILURE;
 	}
-	for (n = 0; n < i; n++)
-		apply(n, Seq_get(srcs, n), cl);
-}
-
-extern void _Cdb_startup(Nub_state_T state), _Cdb_fault(Nub_state_T state);
-
-int main(int argc, char *argv[], char *envp[]) {
-	int i;
-
-	for (i = 0; i < argc; i++) {
-		printf("%s ", argv[i]);
-		if (strncmp(argv[i], "-in=", 4) == 0)
-			in = atoi(argv[i]+4);
-		else if (strncmp(argv[i], "-out=", 5) == 0)
-			out = atoi(argv[i]+5);
+	memset(&server, 0, sizeof server);
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+	inaddr = inet_addr(host);
+	if (inaddr != INADDR_NONE)
+		memcpy(&server.sin_addr, &inaddr, sizeof inaddr);
+	else if ((hp = gethostbyname(host)) != NULL)
+		memcpy(&server.sin_addr, hp->h_addr, hp->h_length);
+	else {
+		fprintf(stderr, "%s: gethostbyname (%d)\n", identity, WSAGetLastError());
+		return EXIT_FAILURE;
 	}
-	printf("\n");
-	assert(in);
-	assert(out);
-	_Nub_init(_Cdb_startup, _Cdb_fault);
+	if (connect(in, (struct sockaddr *)&server, sizeof server) != 0) {
+		perror(stringf("%s: connect (%d)", identity, WSAGetLastError()));
+		return EXIT_FAILURE;
+	}
+	len = sizeof client;
+	if (getsockname(in, (struct sockaddr *)&client, &len) < 0) {
+		perror(stringf("%s: getsockname (%d)", identity, WSAGetLastError()));
+		return EXIT_FAILURE;
+	}
+	fprintf(stderr, "%s: connected on %s:%d ", identity,
+		inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+	fprintf(stderr, "to %s:%d\n",
+		inet_ntoa(server.sin_addr), ntohs(server.sin_port));
+	out = in;
 	return EXIT_SUCCESS;
+}
+
+static void cleanup(void) {
+	if (out) {
+		Header_T msg = NUB_QUIT;
+		tracemsg("%s: sending %s\n", identity, msgname(msg));
+		sendmsg(out, &msg, sizeof msg);
+		closesocket(in);
+	}
+#ifdef _WIN32
+	WSACleanup();
+#endif
+}
+
+void _Cdb_fault(Nub_state_T state) {
+	Header_T msg = NUB_FAULT;
+
+	if (out == 0)
+		exit(EXIT_FAILURE);
+	tracemsg("%s: sending %s\n", identity, msgname(msg));
+	sendmsg(out, &msg, sizeof msg);
+	sendmsg(out, &state, sizeof state);
+	swtch();
+}
+
+void _Cdb_startup(Nub_state_T state) {
+	char *host, *s;
+	short port = 9001;
+
+	if ((host = getenv("DEBUGGER")) == NULL)
+		return;
+	s = strchr(host, ':');
+	if (s != NULL && s[1] != '\0') {
+		*s = '\0';
+		port = atoi(s + 1);
+	}
+#if _WIN32
+	{
+		WSADATA wsaData;
+		int err = WSAStartup(MAKEWORD(2, 0), &wsaData);
+		if (err != 0) {
+			fprintf(stderr, "%s: WSAStartup (%d)", identity, err);
+			return;
+		}
+	}
+#endif
+	atexit(cleanup);
+	if ((s = getenv("TRACE")) != NULL)
+		trace = atoi(s);
+	identity = "client";
+	if (connectto(host, port) == EXIT_SUCCESS) {	/* start the nub */
+		Header_T msg = NUB_STARTUP;
+		tracemsg("%s: sending %s\n", identity, msgname(msg));
+		sendmsg(out, &msg, sizeof msg);
+		sendmsg(out, &state, sizeof state);
+		swtch();
+	}
 }
