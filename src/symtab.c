@@ -4,6 +4,7 @@
 #include "mem.h"
 #include "arena.h"
 #include "symtab.h"
+#include "nub.h"
 
 static char rcsid[] = "$Id$";
 
