@@ -27,6 +27,8 @@ static char *stringf(const char *fmt, ...) {
 	return buf;
 }
 
+void _Nub_state(Nub_state_T *state) {}
+
 static void swtch(void);
 
 static void onbreak(Nub_state_T state) {
