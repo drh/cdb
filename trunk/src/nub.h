@@ -20,6 +20,7 @@ typedef void (*Nub_callback_T)(Nub_state_T state);
 
 enum { SYM, TYPE, STR };
 
+extern struct module *_Nub_modules[];
 extern struct sframe *_Nub_tos;
 
 extern void _Nub_init(Nub_callback_T startup, Nub_callback_T fault);
