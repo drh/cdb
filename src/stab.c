@@ -179,23 +179,22 @@ static int symboluid(const Symbol p) {
 		sym = sym_TYPEDEF(p->name, uid, uname, NULL, 0, 0);
 		sym->type = typeuid(p->type);
 		break;
-	case STATIC: case EXTERN:
-		sym = sym_STATIC(p->name, uid, uname, NULL, 0, 0,
-			Seq_length(statics));
-		sym->type = typeuid(p->type);
-		Seq_addhi(statics, p);
-		break;
 	default:
-		if (p->scope == PARAM)
+		if (p->sclass == STATIC) {
+			sym = sym_STATIC(p->name, uid, uname, NULL, 0, 0,
+					 Seq_length(statics));
+			Seq_addhi(statics, p);
+		} else if (p->scope == GLOBAL || p->sclass == EXTERN) {
+			sym = sym_GLOBAL(p->name, uid, uname, NULL, 0, 0,
+					 Seq_length(statics));
+			Seq_addhi(statics, p);
+		} else if (p->scope == PARAM)
 			sym = sym_PARAM(p->name, uid, uname, NULL, 0, 0,
 				p->x.offset);
-		else if (p->scope >= LOCAL)
+		else {
+			assert(p->scope >= LOCAL);
 			sym = sym_LOCAL(p->name, uid, uname, NULL, 0, 0,
 				p->x.offset);
-		else {
-			sym = sym_STATIC(p->name, uid, uname, NULL, 0, 0,
-				Seq_length(statics));
-			Seq_addhi(statics, p);
 		}
 		sym->type = typeuid(p->type);
 	}

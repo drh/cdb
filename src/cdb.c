@@ -259,7 +259,6 @@ static void vput(int uname, int uid, char *address) {
 					getvalue(address, buf, size);
 					if (memcmp(prev, buf, size) != 0)
 						break;
-					put(".");
 				}
 			}
 			put("\n [%d]=", i);
@@ -354,7 +353,7 @@ static void printsym(const sym_symbol_ty sym, Nub_state_T *frame) {
 		put("%s is a typedef for ", sym->id);
 		tput(sym->module, sym->type);
 		break;
-	case sym_STATIC_enum: {
+	case sym_STATIC_enum: case sym_GLOBAL_enum: {
 		void *addr = _Sym_address(sym);
 		put("%s@0x%x=", sym->id, addr);
 		vput(sym->module, sym->type, addr);
@@ -395,7 +394,7 @@ static void printframe(int verbose, Nub_state_T *frame, int frameno) {
 			if (sym->kind == sym_PARAM_enum) {
 				printparam(sym, frame);
 				break;
-			} else if (sym->kind == sym_STATIC_enum) {
+			} else if (sym->kind == sym_STATIC_enum || sym->kind == sym_GLOBAL_enum) {
 				put("void");
 				break;
 			}
