@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mem.h"
+#include "arena.h"
 #include "table.h"
 #include "atom.h"
 #include "symtab.h"
@@ -9,13 +9,30 @@
 
 static char rcsid[] = "$Id$";
 
+static Arena_T arena;
+static Table_T strings;
+static Table_T symbols;
+static Table_T types;
+
+void _Sym_init(void) {
+	if (arena == NULL)
+		arena = Arena_new();
+	Arena_free(arena);
+	if (strings != NULL)
+		Table_free(&strings);
+	if (symbols != NULL)
+		Table_free(&symbols);
+	if (types != NULL)
+		Table_free(&types);
+	types = Table_new(0, 0, 0);
+	symbols = Table_new(0, 0, 0);
+	strings = Table_new(0, 0, 0);
+}
+
 char *_Sym_string(void *key) {
 	char *str;
-	static Table_T strings;
 
 	assert(key);
-	if (strings == NULL)
-		strings = Table_new(0, 0, 0);
 	str = Table_get(strings, key);
 	if (str == NULL) {
 		char buf[2048];
@@ -37,15 +54,12 @@ char *_Sym_string(void *key) {
 
 struct ssymbol *_Sym_symbol(void *sym) {
 	struct ssymbol *sp;
-	static Table_T symbols;
 
 	assert(sym);
-	if (symbols == NULL)
-		symbols = Table_new(0, 0, 0);
 	sp = Table_get(symbols, sym);
 	if (sp == NULL) {
 		int n;
-		NEW(sp);
+		sp = Arena_alloc(arena, sizeof *sp, __FILE__, __LINE__);
 		n = _Nub_fetch(SYM, sym, sp, sizeof *sp);
 		assert(n == sizeof *sp);
 		if (sp->name)
@@ -59,18 +73,15 @@ struct ssymbol *_Sym_symbol(void *sym) {
 
 struct stype *_Sym_type(void *type) {
 	struct stype *ty;
-	static Table_T types;
 
 	assert(type);
-	if (types == NULL)
-		types = Table_new(0, 0, 0);
 	ty = Table_get(types, type);
 	if (ty == NULL) {
 		int n;
 		unsigned short len;
 		n = _Nub_fetch(TYPE, type, &len, sizeof len);
 		assert(n == sizeof len);
-		ty = ALLOC(len);
+		ty = Arena_alloc(arena, len, __FILE__, __LINE__);
 		n = _Nub_fetch(TYPE, type, ty, len);
 		assert(n == len);
 		Table_put(types, type, ty);
