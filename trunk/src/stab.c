@@ -167,29 +167,29 @@ static int symboluid(const Symbol p) {
 	uid = pickle->nuids++;
 	switch (p->sclass) {
 	case ENUM:
-		sym = sym_ENUMCONST(p->name, uid, uname, NULL, 0, p->scope, 0,
+		sym = sym_ENUMCONST(p->name, uid, uname, NULL, 0, 0,
 			p->u.value);
 		sym->type = typeuid(inttype);
 		break;
 	case TYPEDEF:
-		sym = sym_TYPEDEF(p->name, uid, uname, NULL, 0, p->scope, 0);
+		sym = sym_TYPEDEF(p->name, uid, uname, NULL, 0, 0);
 		sym->type = typeuid(p->type);
 		break;
 	case STATIC: case EXTERN:
-		Seq_addhi(statics, p);
-		sym = sym_STATIC(p->name, uid, uname, NULL, 0, p->scope, 0,
+		sym = sym_STATIC(p->name, uid, uname, NULL, 0, 0,
 			Seq_length(statics));
 		sym->type = typeuid(p->type);
+		Seq_addhi(statics, p);
 		Seq_addhi(pickle->globals, to_generic_int(uid));
 		break;
 	default:
 		if (p->scope >= PARAM)
-			sym = sym_AUTO(p->name, uid, uname, NULL, 0, p->scope, 0,
+			sym = sym_AUTO(p->name, uid, uname, NULL, 0, 0,
 				p->x.offset);
 		else {
-			Seq_addhi(statics, p);
-			sym = sym_STATIC(p->name, uid, uname, NULL, 0, p->scope, 0,
+			sym = sym_STATIC(p->name, uid, uname, NULL, 0, 0,
 				Seq_length(statics));
+			Seq_addhi(statics, p);
 			Seq_addhi(pickle->globals, to_generic_int(uid));
 		}
 		sym->type = typeuid(p->type);
@@ -207,22 +207,11 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 	int naddresses, nmodules, nbpflags;
 
 	{	/* emit breakpoint flags */
-		int i, lc, count = Seq_length(pickle->spoints);
+		int i, lc;
 		comment("breakpoint flags:\n");
 		defglobal(bpflags, DATA);
-		lc = emit_value(0, unsignedchar, 0UL);
-		lc = pad(maxalign, lc);
-		for (i = 0; i < count; i++) {
-			sym_spoint_ty ep = Seq_get(pickle->spoints, i);
-			comment("%d: %s %d.%d\n", i + 1, ep->src->file ? ep->src->file : "",
-				ep->src->y, ep->src->x);
-			lc = emit_value(0, unsignedchar, 0UL);
-			lc = pad(maxalign, lc);
-			nbpflags += lc;
-		}
-		lc = emit_value(0, unsignedtype, 0UL);
-		lc = pad(maxalign, lc);
-		nbpflags += lc;
+		nbpflags = Seq_length(pickle->spoints);
+		(*IR->space)(nbpflags);
 	}
 	{	/* annotate top-level symbols */
 		Symbol p;
@@ -230,12 +219,12 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 			symboluid(p);
 	}
 	{	/* emit addresses of top-level and static symbols */
-		int i, lc, count = Seq_length(statics);
+		int i, lc = 0, count = Seq_length(statics);
 		addresses = genident(STATIC, array(voidptype, 1, 0), GLOBAL);
-		lc = emit_value(0, voidptype, 0UL);
+		comment("addresses:\n");
+		defglobal(addresses, LIT);
 		for (i = 0; i < count; i++) {
 			Symbol p = Seq_get(statics, i);
-			comment("%d: %s\n", i + 1, p->name);
 			lc = emit_value(lc, voidptype, p);
 		}
 		lc = pad(maxalign, lc);
@@ -282,16 +271,14 @@ static int tail(void) {
 
 /* point_hook - called at each execution point */
 static void point_hook(void *cl, Coordinate *cp, Tree *e) {
-	Coordinate *p;
 	Tree t;
-		
-	Seq_addhi(pickle->spoints, sym_spoint(sym_coordinate(cp->file, cp->x, cp->y), tail()));
+	
 	/*
 	add breakpoint test to *e:
-	(module.bpflags[i].i < 0 && _Nub_bp(i), *e)
+	(module.bpflags[i] < 0 && _Nub_bp(i), *e)
 	*/
 	t = tree(AND, voidtype,
-		(*optree['<'])(LT,
+		(*optree[NEQ])(NE,
 			rvalue((*optree['+'])(ADD,
 				pointer(idtree(bpflags)),
 				cnsttree(inttype, Seq_length(pickle->spoints)))),
@@ -301,6 +288,7 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 		*e = tree(RIGHT, (*e)->type, t, *e);
 	else
 		*e = t;
+	Seq_addhi(pickle->spoints, sym_spoint(sym_coordinate(cp->file, cp->x, cp->y), tail()));
 }
 
 /* setoffset - emits code to set the offset field for p */
@@ -326,7 +314,7 @@ static void entry_hook(void *cl, Symbol cfunc) {
 	ty->size += t->size
 	addfield("up",    voidptype);
 	addfield("down",  voidptype);
-	addfield("func",  voidptype);
+	addfield("func",  inttype);
 	addfield("module",voidptype);
 	addfield("ip",    inttype);     
 #undef addfield
