@@ -1,19 +1,19 @@
 # $Id$
-CC=lcc
+CC=cc
 CFLAGS	= -g
 # Configuration:
 # SRCDIR	root of the lcc 4.1 distribution
-# INCLUDES	-I options for CII headers and lcc 4.0 headers
+# INCLUDES	-I options for CII headers and lcc 4.1 headers
 # HOSTFILE	path to an lcc driver back end that supports cdb
 # BUILDDIR	the lcc 4.1 build directory
 # LDFLAGS	-L options for librcc.a (in the lcc build directory)
 # LIBS		libraries, including socket and network libraries
 SRCDIR	= /u/drh/pkg/lcc/4.1
 INCLUDES= -I/usr/local/lib/cii/1/include -I$(SRCDIR)/src -I$(ASDL_HOME)/include/asdlGen -I$(BUILDDIR)
-HOSTFILE=etc/solaris.c
+HOSTFILE= etc/solaris.c
 BUILDDIR= $(SRCDIR)/sparc-solaris
-LDFLAGS	= -g -L$(BUILDDIR)
-LIBS	= -lcii -lsocket -lnsl
+LDFLAGS	= -g -L$(BUILDDIR) -L$(ASDL_HOME)/lib/asdlGen
+LIBS	= -lasdl -lcii -lsocket -lnsl
 E=
 O=.o
 A=.a
@@ -41,7 +41,7 @@ $Blibnub$A:	$Bclient$O $Bnub$O $Bcomm$O
 $Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@; chmod +x $@
 
 $Brcc$E:	$Bstab$O $Binits$O $Bsym$O
-		$(CC) $(LDFLAGS) -o $@ $Bstab$O $Binits$O $Bsym$O -lrcc -lcii -L$(ASDL_HOME)/lib/asdlGen -lasdl
+		$(CC) $(LDFLAGS) -o $@ $Bstab$O $Binits$O $Bsym$O -lrcc -L$(ASDL_HOME)/lib/asdlGen -lasdl -lcii
 
 $Binits$O:	src/inits.c;	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/inits.c
 
