@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# $Id$
+
 # prelink -o file files...
 # generates list of module pointers in the given object files
 # on the standard output as a C program
