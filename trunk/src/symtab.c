@@ -10,46 +10,41 @@
 static char rcsid[] = "$Id$";
 
 static Arena_T arena;
-static Table_T strings;
+static Table_T modules;
 static Table_T symbols;
 static Table_T types;
 
-void _Sym_init(void) {
+void _Sym_init() {
 	if (arena == NULL)
 		arena = Arena_new();
 	Arena_free(arena);
-	if (strings != NULL)
-		Table_free(&strings);
+	if (modules != NULL)
+		Table_free(&modules);
 	if (symbols != NULL)
 		Table_free(&symbols);
 	if (types != NULL)
 		Table_free(&types);
+	modules = Table_new(0, 0, 0);
 	types = Table_new(0, 0, 0);
 	symbols = Table_new(0, 0, 0);
-	strings = Table_new(0, 0, 0);
 }
 
-char *_Sym_string(void *key) {
-	char *str;
+const char *_Sym_string(void *module, int index) {
+	struct module *m = Table_get(modules, module);
 
-	assert(key);
-	str = Table_get(strings, key);
-	if (str == NULL) {
-		char buf[2048];
-		int i = 0, n;
-		for (;;) {
-			assert(i < sizeof buf - 4);
-			n = _Nub_fetch(STR, (char *)key + i, &buf[i], 4);
-			assert(n == 4);
-			if (buf[i]) i++; else break;
-			if (buf[i]) i++; else break;
-			if (buf[i]) i++; else break;
-			if (buf[i]) i++; else break;
-		}
-		str = (char *)Atom_string(buf);
-		Table_put(strings, key, str);
+	if (m == NULL) {
+		char *str;
+		int n;
+		m = Arena_alloc(arena, sizeof *m, __FILE__, __LINE__);
+		n = _Nub_fetch(SYM, module, m, sizeof *m);
+		assert(n == sizeof *m);
+		str = Arena_alloc(arena, m->strcount, __FILE__, __LINE__);
+		n = _Nub_fetch(STR, (void *)m->strings, str, m->strcount);
+		assert(n == m->strcount);
+		m->strings = str;
+		Table_put(modules, module, m);
 	}
-	return str;
+	return m->strings + index;
 }
 
 struct ssymbol *_Sym_symbol(void *sym) {
@@ -62,10 +57,6 @@ struct ssymbol *_Sym_symbol(void *sym) {
 		sp = Arena_alloc(arena, sizeof *sp, __FILE__, __LINE__);
 		n = _Nub_fetch(SYM, sym, sp, sizeof *sp);
 		assert(n == sizeof *sp);
-		if (sp->name)
-			sp->name = _Sym_string(sp->name);
-		if (sp->file)
-			sp->file = _Sym_string(sp->file);
 		Table_put(symbols, sym, sp);
 	}
 	return sp;
@@ -94,7 +85,7 @@ struct ssymbol *_Sym_find(const char *name, void *context) {
 
 	for ( ; context; context = sym->uplink) {
 		sym = _Sym_symbol(context);
-		if (sym->name && strcmp(name, sym->name) == 0)
+		if (sym->name && strcmp(name, _Sym_string(sym->module, sym->name)) == 0)
 			return sym;
 	}
 	return NULL;

@@ -40,7 +40,7 @@ static void comment(char *fmt, ...) {
 
 	print(leader);
 	va_start(ap, fmt);
-	vprintf(fmt, ap);
+	vfprint(stdout, NULL, fmt, ap);
 	va_end(ap);
 }
 
@@ -134,10 +134,10 @@ static Symbol annotate(Type ty) {
 	return ty->x.xt;
 }
 
-/* emit_ssymbol - emits an initialized ssymbol for p, annotates p,
+/* emit_symbol - emits an initialized ssymbol for p, annotates p,
 and returns symbol-table entry for that initialized variable
 */
-static Symbol emit_ssymbol(Symbol p) {
+static Symbol emit_symbol(Symbol p) {
 	while (p && (!p->defined
 	&& (p->sclass == EXTERN || isfunc(p->type) && p->sclass == AUTO)))
 		p = p->up;
@@ -147,7 +147,7 @@ static Symbol emit_ssymbol(Symbol p) {
 		int lc;
 		Symbol up;
 		p->y.emitted = 1;
-		up = emit_ssymbol(p->up);
+		up = emit_symbol(p->up);
 		if (p->y.p == NULL)
 			p->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
 		comment("%s\n", typestring(p->type, p->name));
@@ -176,6 +176,7 @@ static Symbol emit_ssymbol(Symbol p) {
 			lc = emit_value(lc, voidptype, NULL);
 		lc = emit_value(lc, unsignedchar, (unsigned long)(p->scope > LOCAL ? LOCAL : p->scope));
 		lc = emit_value(lc, unsignedchar, (unsigned long)p->sclass);
+		lc = emit_value(lc, voidptype, module);
 		lc = emit_value(lc, voidptype, annotate(p->type));
 		if (up == NULL)
 			lc = emit_value(lc, voidptype, NULL);
@@ -300,8 +301,8 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		Symbol p, *allsyms = ltov(&symbollist, PERM);
 		int i, lc;
 		for (i = 0; allsyms[i]; i++)
-			emit_ssymbol(allsyms[i]);
-		p = emit_ssymbol(symroot);
+			emit_symbol(allsyms[i]);
+		p = emit_symbol(symroot);
 		comment("the link symbol\n");
 		defglobal(link, DATA);
 		lc = emit_value(0, inttype, 0L);
@@ -355,13 +356,20 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = pad(maxalign, lc);
 		nfiles += lc;
 		for (i = 1; filelist[i]; i++) {
-			lc = emit_string(0, filelist[i]);
+			lc = emit_value(0, voidptype, mkstr(filelist[i])->u.c.loc);
 			lc = pad(maxalign, lc);
 			nfiles += lc;
-		}
+
+			}
 		lc = emit_value(0, voidptype, NULL);
 		lc = pad(maxalign, lc);
 		nfiles += lc;
+	}
+	{	/* emit types */
+		Type *alltypes = ltov(&typelist, PERM);
+		int i;
+		for (i = 0; alltypes[i] != NULL; i++)
+			emit_type(alltypes[i]);
 	}
 	{	/* emit strings */
 		struct string *p;
@@ -387,12 +395,6 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = emit_value(lc, voidptype, strs);
 		lc = pad(maxalign, lc);
 		nmodules += lc;
-	}
-	{	/* emit types */
-		Type *alltypes = ltov(&typelist, PERM);
-		int i;
-		for (i = 0; alltypes[i] != NULL; i++)
-			emit_type(alltypes[i]);
 	}
 	Table_free(&strings);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x

@@ -69,13 +69,14 @@ struct ssymbol {
         uint16 file;
         unsigned char scope;
         unsigned char sclass;
+	struct module *module;
         struct stype *type;
         struct ssymbol *uplink;
 };
 
 struct sframe {
         struct sframe *up, *down;
-        uint16 func;
+        const char *func;
         struct module *module;
         struct ssymbol *tail;
         int ip;

@@ -7,7 +7,7 @@
 extern void _Sym_init(void);
 extern struct ssymbol *_Sym_symbol(void *sym);
 extern struct stype *_Sym_type(void *type);
-extern char *_Sym_string(void *str);
+extern const char *_Sym_string(void *module, int index);
 extern struct ssymbol *_Sym_find(const char *name, void *context);
 
 #endif
