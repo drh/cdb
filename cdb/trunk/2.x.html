@@ -3,7 +3,7 @@
 
 <head>
 <link HREF="mailto:drh@microsoft.com" REV="made" TITLE="David R. Hanson">
-<title>cdb 2.1</title>
+<title>cdb 2.x</title>
 <meta name="GENERATOR" content="Microsoft FrontPage 3.0">
 </head>
 
@@ -20,11 +20,11 @@ cellspacing="0">
     href="http://www.cs.princeton.edu/software/lcc/">lcc, A Retargetable C Compiler</a> <img
     src="images/arrow.gif" alt=":" WIDTH="13" HEIGHT="9"> <a href="./">cdb, A
     Machine-Independent Debugger</a> <img src="images/arrow.gif" alt=":" WIDTH="13" HEIGHT="9">
-    cdb 2.1</td>
+    cdb 2.x</td>
   </tr>
 </table>
 
-<h1>cdb 2.1</h1>
+<h1>cdb 2.x</h1>
 
 <h4><strong>David R. Hanson, Microsoft Research</strong></h4>
 
@@ -33,7 +33,7 @@ cellspacing="0">
 <p>cdb is a machine-independent debugger for C programs compiled by <a
 href="http://www.cs.princeton.edu/software/lcc/">lcc</a> 4.x, a retargetable compiler for
 ISO Standard C. The latest version of cdb, <a
-href="ftp://ftp.research.microsoft.com/Users/drh/cdb21.zip">version 2.1</a> (36KB ZIP
+href="ftp://ftp.research.microsoft.com/Users/drh/cdb22.zip">version 2.2</a> (40KB ZIP
 file), differs in important ways from the implementation described in D. R. Hanson and M.
 Raghavachari, &quot;A Machine-Independent Debugger,&quot; <cite>Software&#151;Practice and
 Experience</cite> &nbsp;<strong>26</strong> (11), 1277-1299, Nov. 1996 ( <a
@@ -50,8 +50,7 @@ Solaris.</p>
 <p>Most of the nub interface (defined in <a href="pkg/src/nub.h">nub.h</a>) remains
 unchanged; in the following listing and in those below, boldface identifies the changes.</p>
 
-<pre>
-typedef struct {
+<pre>typedef struct {
 	char file[32];
 	unsigned short x, y;
 } Nub_coord_T;
@@ -357,7 +356,7 @@ code is generated at calls and returns.</p>
 <address>
   <a HREF="http://www.research.microsoft.com/~drh/">David Hanson</a> / <a
   HREF="mailto:drh@microsoft.com">drh@microsoft.com</a><br>
-  $Revision: 1.2 $ $Date: 1998/03/27 22:20:06 $ 
+  $Revision: 1.3 $ $Date: 1999/01/14 23:33:01 $ 
 </address>
 </body>
 </html>
