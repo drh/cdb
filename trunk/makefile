@@ -35,7 +35,7 @@ $Blcc$E:	$Blcc$O $Bhost$O;	$(CC) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
 $Blcc$O:	$(SRCDIR)/etc/lcc.c;	$(CC) -v -c $(CFLAGS) -o $@ $(SRCDIR)/etc/lcc.c
 $Bhost$O:	$(HOSTFILE);		$(CC) -c $(CFLAGS) -o $@ $(HOSTFILE)
  
-$Blibnub$A:	$Bclient$O $Bnub$O $Bsymstub$O $Bcomm$O
+$Blibnub$A:	$Bclient$O $Bnub$O $Bcomm$O
 		ar ruv $@ $?
 
 $Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@; chmod +x $@
@@ -48,6 +48,7 @@ $Binits$O:	src/inits.c;	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/inits.c
 CDBOBJS=$Bserver$O \
 	$Bcomm$O \
 	$Bcdb$O \
+	$Bsym$O \
 	$Bsymtab$O
 
 $Bcdb$E:	$(CDBOBJS)

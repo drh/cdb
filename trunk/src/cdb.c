@@ -1,12 +1,8 @@
-#define NDEBUG
-#include "c.h"
-#undef NDEBUG
 #include <stdarg.h>
 #include <stdio.h>
 #include <signal.h>
 #include <ctype.h>
-#undef NEW
-#undef NEW0
+#include <string.h>
 #include "mem.h"
 #include "seq.h"
 #include "server.h"
@@ -58,7 +54,8 @@ static void put(char *fmt, ...) {
 	va_end(ap);
 }
 
-static void tput(const void *type) {
+static void tput(int uname, int uid) {
+	sym_type_ty type = _Sym_type(uname, uid);
 #if 0
 	const struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
@@ -158,7 +155,7 @@ static void sput(char *address, int max) {
 
 	put("\"");
 	for (i = 0; i < max; i += (int)sizeof buf) {
-		getvalue(DATA, address + i, buf, sizeof buf);
+		getvalue(0, address + i, buf, sizeof buf);
 		for (j = 0; j < (int)sizeof buf; j++)
 			if (buf[j] == 0) {
 				put("\"");
@@ -171,7 +168,8 @@ static void sput(char *address, int max) {
 	put("...");
 }
 
-static void vput(const void *type, char *address) {
+static void vput(int uname, int uid, char *address) {
+	sym_type_ty type = _Sym_type(uname, uid);
 #if 0
 	const struct stype *ty = _Sym_type(type);
 	void *end = (char *)ty + ty->len;
@@ -335,15 +333,26 @@ static void printsym(const sym_symbol_ty sym, Nub_state_T *frame) {
 		break;
 	case sym_TYPEDEF_enum:
 		put("%s is a typedef for ", sym->id);
-		tput(sym->type);
+		tput(sym->module, sym->type);
 		break;
-	case sym_STATIC_enum:
-		put("%s@0x%x=", sym->id, sym->v.sym_STATIC.index);	/* FIXME */
-		/* vput(sym->type, sym->u.address); FIXME */
+	case sym_STATIC_enum: {
+		void *addr = _Sym_address(sym);
+		put("%s@0x%x=", sym->id, addr);
+		vput(sym->module, sym->type, addr);
 		break;
-	case sym_AUTO_enum:
-		put("%s@0x%x=", name, frame->fp + sym->v.sym_AUTO.offset);
-		vput(sym->type, frame->fp + sym->v.sym_AUTO.offset);
+		}
+	case sym_PARAM_enum: {
+		void *addr = frame->fp + sym->v.sym_PARAM.offset;
+		put("%s@0x%x=", sym->id, addr);
+		vput(sym->module, sym->type, addr);
+		break;
+		}
+	case sym_LOCAL_enum: {
+		void *addr = frame->fp + sym->v.sym_LOCAL.offset;
+		put("%s@0x%x=", sym->id, addr);
+		vput(sym->module, sym->type, addr);
+		break;
+		}
 	default: assert(0);
 	}
 }
@@ -351,7 +360,7 @@ static void printsym(const sym_symbol_ty sym, Nub_state_T *frame) {
 static void printparam(const sym_symbol_ty sym, Nub_state_T *frame) {
 	if (sym->uplink) {
 		const sym_symbol_ty next = _Sym_symbol(sym->module, sym->uplink);
-		if (next->kind == sym_AUTO_enum) {
+		if (next->kind == sym_PARAM_enum) {
 			printparam(next, frame);
 			put(",");
 		}
@@ -360,34 +369,40 @@ static void printparam(const sym_symbol_ty sym, Nub_state_T *frame) {
 }
 	
 static void printframe(int verbose, Nub_state_T *frame, int frameno) {
+	int i, count;
+	sym_symbol_ty sym;
+	Seq_T syms = NULL;
+
 	put("%d\t%s(", frameno, frame->name);
 	if (verbose > 0) {	/* print parameters */
-		const struct ssymbol *sym;
-		struct _Sym_iterator *it = _Sym_iterator(frame->context);
-		while ((sym = _Sym_next(it)) != NULL)
-			if (sym->scope == PARAM) {
+		syms = _Sym_visible(frame->context);
+		count = Seq_length(syms);
+		for (i = 0; i < count; i++) {
+			sym = Seq_get(syms, i);
+			if (sym->kind == sym_PARAM_enum) {
 				printparam(sym, frame);
 				break;
-			} else if (sym->scope < PARAM) {
+			} else if (sym->kind == sym_STATIC_enum) {
 				put("void");
 				break;
 			}
-		FREE(it);
+		}
 	}
 	put(")\n");
 	if (verbose > 1) {	/* print locals */
-		const struct ssymbol *sym;
-		struct _Sym_iterator *it = _Sym_iterator(frame->context);
-		while ((sym = _Sym_next(it)) != NULL)
-			if (sym->scope >= LOCAL
-			&& (sym->sclass == AUTO || sym->sclass == REGISTER)) {
+		count = Seq_length(syms);
+		for (i = 0; i < count; i++) {
+			sym = Seq_get(syms, i);
+			if (sym->kind == sym_LOCAL_enum) {
 				put("\t");
 				printsym(sym, frame);
 				put("\n");
-			} else if (sym->scope < LOCAL)
+			} else if (sym->kind == sym_STATIC_enum)
 				break;
-		FREE(it);
+		}
 	}
+	if (syms != NULL)
+		Seq_free(&syms);
 }
 
 static void moveto(int n) {
@@ -530,18 +545,19 @@ static void r_cmd(char *line) {
 }
 
 static void v_cmd(const char *line) {
-	struct _Sym_iterator *it = _Sym_iterator(focus.context);
-	const struct ssymbol *sym;
+	Seq_T syms = _Sym_visible(focus.context);
 
-	while ((sym = _Sym_next(it)) != NULL)
-		if (_Sym_type(sym->type)->op != FUNCTION
-		&& sym->sclass != TYPEDEF)
-			if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file != 0)
-				put("p %s:%s\n", _Sym_string(sym->file),
-					_Sym_string(sym->name));
+	while (Seq_length(syms) > 0) {
+		const sym_symbol_ty sym = Seq_remlo(syms);
+		const sym_type_ty type = _Sym_type(sym->module, sym->type);
+		if (type->kind != sym_FUNCTION_enum && sym->kind != sym_ENUM_enum
+		&& sym->kind != sym_TYPEDEF_enum)
+			if (sym->kind == sym_STATIC_enum && sym->src->file != NULL)
+				put("p %s:%s\n", sym->src->file, sym->id);
 			else
-				put("p %s\n", _Sym_string(sym->name));
-	FREE(it);
+				put("p %s\n", sym->id);
+	}
+	Seq_free(&syms);
 }
 
 static void p_cmd(char *line) {
@@ -553,7 +569,7 @@ static void p_cmd(char *line) {
 	}
 	for ( ; *p; p = skipwhite(p)) {
 		int n = 0;
-		struct _Sym_iterator *it = _Sym_iterator(focus.context);
+		Seq_T syms = _Sym_visible(focus.context);
 		char *file = p, *name = p;
 		while (*p && !isspace(*p) && *p != ':')
 			p++;
@@ -565,34 +581,35 @@ static void p_cmd(char *line) {
 		} else
 			file = NULL;
 		*p++ = 0;
-		if (file == NULL) {
-			const struct ssymbol *sym;
-			while ((sym = _Sym_next(it)) != NULL)
-				if (strcmp(_Sym_string(sym->name), name) == 0) {
-					if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file)
-						put("%s:", _Sym_string(sym->file));
+		if (file == NULL)
+			while (Seq_length(syms) > 0) {
+				sym_symbol_ty sym = Seq_remlo(syms);
+				if (strcmp(sym->id, name) == 0) {
+					if (sym->kind == sym_STATIC_enum && sym->src->file)
+						put("%s:", sym->src->file);
 					printsym(sym, &focus);
 					put("\n");
 					n++;
 					break;
 				}
-		} else {
-			const struct ssymbol *sym;
-			while ((sym = _Sym_next(it)) != NULL)
-				if (sym->sclass == STATIC && sym->scope == GLOBAL && sym->file
-				&& strcmp(_Sym_string(sym->file), file) == 0
-				&& strcmp(_Sym_string(sym->name), name) == 0) {
+			}
+		else
+			while (Seq_length(syms) > 0) {
+				sym_symbol_ty sym = Seq_remlo(syms);
+				if (sym->kind == sym_STATIC_enum && sym->src->file
+				&& strcmp(sym->src->file, file) == 0
+				&& strcmp(sym->id, name) == 0) {
 					put("%s:", file);
 					printsym(sym, &focus);
 					put("\n");
 					n++;
 				}
-		}
+			}
 		if (n == 0 && file != NULL)
 			put("?Unknown identifier: %s:%s\n", file, name);
 		else if (n == 0)
 			put("?Unknown identifier: %s\n", name);
-		FREE(it);
+		Seq_free(&syms);
 	}
 }
 

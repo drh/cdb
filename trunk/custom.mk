@@ -8,7 +8,7 @@ LD=cc
 HOSTFILE=etc/win32.c
 BUILDDIR=x86/win32
 LDFLAGS=-g
-LIBS=-lcii -lws2_32.lib
+LIBS=-Wl$(ASDL_HOME)/lib/asdlGen/libasdl.lib -lcii -lws2_32.lib
 lib:=/users/drh/lib/cii/1;$(SRCDIR)/x86/win32;/Program Files/devstudio/vc/lib;e:/pkg/devstudio/vc/lib
 LCCINPUTS=.;\users\drh\lib\cii\1
 .EXPORT:	lib LCCINPUTS
