@@ -4,12 +4,12 @@ NOTANGLE=notangle -L -t8
 CC=cc
 CFLAGS=-g -DWIN32
 LD=cc
-SRCDIR=c:/users/drh/book/4.0
+SRCDIR=c:/users/drh/book/4.1
 HOSTFILE=etc/win32.c
 BUILDDIR=x86/win32
 LDFLAGS=-g
 LIBS	= -lcii ws2_32.lib
-LIB=/users/drh/lib/cii/1;/users/drh/book/4.0/x86/win32;/Program Files/devstudio/vc/lib;e:/pkg/devstudio/vc/lib
+LIB=/users/drh/lib/cii/1;/users/drh/book/4.1/x86/win32;/Program Files/devstudio/vc/lib;e:/pkg/devstudio/vc/lib
 LCCINPUTS=.;\users\drh\lib\cii\1
 .EXPORT:	LIB LCCINPUTS
 E=.exe
