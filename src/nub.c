@@ -1,333 +1,303 @@
-/* Go to: <a href="#contents">contents</a>, <a href="#index">index</a><p>   */
-/*                                                                          */
-/* <h2><a name="implementation">Nub Implementation</a></h2>                 */
-/*                                                                          */
-/*                                                                          */
-/* <nub.c>=                                                                 */
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "nub.h"
 
-static char rcsid[] = "$Id$";
+static char rcsid[] = "$Id";
 
-/* <nub data>=                                                              */
 struct sframe *_Nub_tos;
 struct module *_Nub_modules[];
-
 static Nub_callback_T faulthandler;
 static Nub_callback_T breakhandler;
 static int frameno;
 static struct ssymbol *root;
 static struct sframe *fp;
-
-/* <nub data>=                                                              */
 static struct { char *start, *end; } text, data, stack;
+static union { int i; char endian; } little = { 1 };
 
-/* <nub static functions>=                                                  */
 static void setcoord(union scoordinate w, struct module *modp, Nub_coord_T *src) {
-        int f, i, x, y;
+	int f, i, x, y;
 
-        /* <unpack w into f,i,x,y>=                                                 */
-        {
-                static union { int i; char endian; } little = { 1 };
-                if (little.endian) {
-                        i = w.le.index;
-                        x = w.le.x + 1;
-                        y = w.le.y;
-                        f = w.le.flag;
-                } else {
-                        i = w.be.index;
-                        x = w.be.x + 1;
-                        y = w.be.y;
-                        f = w.be.flag;
-                }
-        }
-
-        strncpy(src->file, modp->files[i], sizeof src->file);
-        src->x = x;
-        src->y = y;
+	if (little.endian) {
+		i = w.le.index;
+		x = w.le.x + 1;
+		y = w.le.y;
+		f = w.le.flag;
+	} else {
+		i = w.be.index;
+		x = w.be.x + 1;
+		y = w.be.y;
+		f = w.be.flag;
+	}
+	strncpy(src->file, modp->files[i], sizeof src->file);
+	src->x = x;
+	src->y = y;
 }
 
 static void set_state(struct sframe *fp, Nub_state_T *state) {
-        strncpy(state->name, fp->func, sizeof state->name);
-        setcoord(fp->module->coordinates[fp->ip], fp->module, &state->src);
-        state->fp = (void *)fp;
-        state->context = fp->tail;
+	strncpy(state->name, fp->func, sizeof state->name);
+	setcoord(fp->module->coordinates[fp->ip], fp->module, &state->src);
+	state->fp = (void *)fp;
+	state->context = fp->tail;
 }
 
-/* <nub static functions>=                                                  */
 static void movedown(void) {
-        if (fp->down) {
-                fp->down->up = fp;
-                fp = fp->down;
-                frameno++;
-        }
+	if (fp->down) {
+		fp->down->up = fp;
+		fp = fp->down;
+		frameno++;
+	}
 }
 
 static void moveup(void) {
-        if (fp->up) {
-                fp = fp->up;
-                frameno--;
-        }
+	if (fp->up) {
+		fp = fp->up;
+		frameno--;
+	}
 }
 
-/* Two coordinates are `equal' if their nondefault components               */
-/* are equal.                                                               */
-/*                                                                          */
-/*                                                                          */
-/* <nub static functions>=                                                  */
 static int equal(Nub_coord_T *src, union scoordinate w, char *files[]) {
-        int f, i, x, y;
+	int f, i, x, y;
 
-        /* <unpack w into f,i,x,y>=                                                 */
-        {
-                static union { int i; char endian; } little = { 1 };
-                if (little.endian) {
-                        i = w.le.index;
-                        x = w.le.x + 1;
-                        y = w.le.y;
-                        f = w.le.flag;
-                } else {
-                        i = w.be.index;
-                        x = w.be.x + 1;
-                        y = w.be.y;
-                        f = w.be.flag;
-                }
-        }
+	/* <unpack w into f,i,x,y>=                                                 */
+	{
+		static union { int i; char endian; } little = { 1 };
+		if (little.endian) {
+			i = w.le.index;
+			x = w.le.x + 1;
+			y = w.le.y;
+			f = w.le.flag;
+		} else {
+			i = w.be.index;
+			x = w.be.x + 1;
+			y = w.be.y;
+			f = w.be.flag;
+		}
+	}
 
-        return (src->y == 0 || src->y == y)
-            && (src->x == 0 || src->x == x)
-            && (src->file[0] == 0 || files[i] && strcmp(src->file, files[i]) == 0);
+	/*
+	Two coordinates are `equal' if their
+	nondefault components are equal.
+	*/
+	return (src->y == 0 || src->y == y)
+	    && (src->x == 0 || src->x == x)
+	    && (src->file[0] == 0 || files[i] && strcmp(src->file, files[i]) == 0);
 }
-/* <nub static functions>=                                                  */
+
 union scoordinate *src2cp(Nub_coord_T src) {
-        int i;
+	int i;
 
-        for (i = 0; _Nub_modules[i]; i++) {
-                char **files = _Nub_modules[i]->files;
-                union scoordinate *cp = &_Nub_modules[i]->coordinates[1];
-                for ( ; cp->i; cp++)
-                        if (equal(&src, *cp, files))
-                                return cp;
-        }
-        return NULL;
+	for (i = 0; _Nub_modules[i]; i++) {
+		char **files = _Nub_modules[i]->files;
+		union scoordinate *cp = &_Nub_modules[i]->coordinates[1];
+		for ( ; cp->i; cp++)
+			if (equal(&src, *cp, files))
+				return cp;
+	}
+	return NULL;
 }
 
-/* <nub functions>=                                                         */
 void _Nub_init(Nub_callback_T startup, Nub_callback_T fault) {
-        Nub_state_T state;
-        struct module *m;
-        static Nub_state_T z;
-        int i;
+	Nub_state_T state;
+	struct module *m;
+	static Nub_state_T z;
+	int i;
 
-        faulthandler = fault;
-        for (i = 0; (m = _Nub_modules[i]) != NULL; i++) {
-                struct ssymbol *sp = m->link;
-                assert(sp);
-/*              /* <print m's files and top-level symbols>=                                 */
-                {
-                        int i;
-                        struct ssymbol *p; 
-                        for (i = 1; m->files[i]; i++)
-                                fprintf(stderr, " %s", m->files[i]);
-                        if ((p = m->link->uplink) != NULL) {
-                                fprintf(stderr, ":");
-                                for ( ; p; p = p->uplink)
-                                        fprintf(stderr, " %s", p->name);
-                        }
-                        fprintf(stderr, "\n");
-                }
-                /* <print m's coordinates>=                                                 */
-                {
-                        int i;
-                        union scoordinate w;
-                        for (i = 1; (w = m->coordinates[i]).i; i++) {
-                                int f, i, x, y;
-                                /* <unpack w into f,i,x,y>=                                                 */
-                                {
-                                        static union { int i; char endian; } little = { 1 };
-                                        if (little.endian) {
-                                                i = w.le.index;
-                                                x = w.le.x + 1;
-                                                y = w.le.y;
-                                                f = w.le.flag;
-                                        } else {
-                                                i = w.be.index;
-                                                x = w.be.x + 1;
-                                                y = w.be.y;
-                                                f = w.be.flag;
-                                        }
-                                }
+	faulthandler = fault;
+	for (i = 0; (m = _Nub_modules[i]) != NULL; i++) {
+		struct ssymbol *sp = m->link;
+		assert(sp);
+		{	/* print m's files and top-level symbols */
+			int i;
+			struct ssymbol *p; 
+			for (i = 1; m->files[i]; i++)
+				fprintf(stderr, " %s", m->files[i]);
+			if ((p = m->link->uplink) != NULL) {
+				fprintf(stderr, ":");
+				for ( ; p; p = p->uplink)
+					fprintf(stderr, " %s", p->name);
+			}
+			fprintf(stderr, "\n");
+		}
+		{	/* print m's coordinates */
+			int i;
+			union scoordinate w;
+			for (i = 1; (w = m->coordinates[i]).i; i++) {
+				int f, i, x, y;
+				/* <unpack w into f,i,x,y>=                                                 */
+				{
+					static union { int i; char endian; } little = { 1 };
+					if (little.endian) {
+						i = w.le.index;
+						x = w.le.x + 1;
+						y = w.le.y;
+						f = w.le.flag;
+					} else {
+						i = w.be.index;
+						x = w.be.x + 1;
+						y = w.be.y;
+						f = w.be.flag;
+					}
+				}
 
-                                if (i > 0 && m->files[i])
-                                        fprintf(stderr, "%s:", m->files[i]);
-                                fprintf(stderr, "%d.%d\n", y, x);
-                        }
-                }
-
-                while (sp->uplink)
-                        sp = sp->uplink;
-                if (sp != m->link) {
-                        sp->uplink = root;
-                        root = m->link->uplink;
-                }
-        }
-        for (i = 0; _Nub_modules[i]; i++)
-                _Nub_modules[i]->link->uplink = root;
-        fp = NULL;
-        frameno = 0;
-        state = z;
-        state.context = root;
-        /* <initialize memory map>=                                                 */
-        {
-                extern char etext;
-                text.start = 0;
-                text.end = &etext;
-                data.start = &etext;
-                stack.end = (char *)-1;
-                /* <update memory map>=                                                     */
-                {
-                        char tos;
-                        extern void *sbrk(long);
-                        data.end = sbrk(0);
-                        if (data.end == (char *)-1)
-                                data.end = data.start;
-                        stack.start = &tos;
-                }
-
-        }
-
-        startup(state);
+				if (i > 0 && m->files[i])
+					fprintf(stderr, "%s:", m->files[i]);
+				fprintf(stderr, "%d.%d\n", y, x);
+			}
+		}
+		while (sp->uplink)
+			sp = sp->uplink;
+		if (sp != m->link) {
+			sp->uplink = root;
+			root = m->link->uplink;
+		}
+	}
+	for (i = 0; _Nub_modules[i]; i++)
+		_Nub_modules[i]->link->uplink = root;
+	fp = NULL;
+	frameno = 0;
+	state = z;
+	state.context = root;
+	{	/* initialize memory map */
+		extern char etext;
+		text.start = 0;
+		text.end = &etext;
+		data.start = &etext;
+		stack.end = (char *)-1;
+		{
+			char tos;
+			extern void *sbrk(long);
+			data.end = sbrk(0);
+			if (data.end == (char *)-1)
+				data.end = data.start;
+			stack.start = &tos;
+		}
+	}
+	startup(state);
 }
-/* <nub functions>=                                                         */
+
 void _Nub_bp(int index, struct ssymbol *tail) {
-        Nub_state_T state;
+	Nub_state_T state;
 
-        if (!breakhandler)
-                return;
-        _Nub_tos->ip = index;
-        _Nub_tos->tail = tail;
-        fp = _Nub_tos;
-        fp->up = NULL;
-        set_state(fp, &state);
-        frameno = 0;
-        /* <update memory map>=                                                     */
-        {
-                char tos;
-                extern void *sbrk(long);
-                data.end = sbrk(0);
-                if (data.end == (char *)-1)
-                        data.end = data.start;
-                stack.start = &tos;
-        }
-
-        breakhandler(state);
+	if (!breakhandler)
+		return;
+	_Nub_tos->ip = index;
+	_Nub_tos->tail = tail;
+	fp = _Nub_tos;
+	fp->up = NULL;
+	set_state(fp, &state);
+	frameno = 0;
+	/* <update memory map>=                                                     */
+	{
+		char tos;
+		extern void *sbrk(long);
+		data.end = sbrk(0);
+		if (data.end == (char *)-1)
+			data.end = data.start;
+		stack.start = &tos;
+	}
+	breakhandler(state);
 }
 
-/* <nub functions>=                                                         */
 Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
-        Nub_callback_T prev = breakhandler;
-        static union { int i; char c; } x = { 1 };
-        union scoordinate *cp = src2cp(src);
+	Nub_callback_T prev = breakhandler;
+	static union { int i; char c; } x = { 1 };
+	union scoordinate *cp = src2cp(src);
 
-        if (cp == NULL)
-                return NULL;
-        if (onbreak)
-                breakhandler = onbreak;
-        if (x.c == 1)
-                cp->le.flag = 1;
-        else
-                cp->be.flag = 1;
-        return prev;
+	if (cp == NULL)
+		return NULL;
+	if (onbreak)
+		breakhandler = onbreak;
+	if (x.c == 1)
+		cp->le.flag = 1;
+	else
+		cp->be.flag = 1;
+	return prev;
 }
 
 Nub_callback_T _Nub_remove(Nub_coord_T src) {
-        static union { int i; char c; } x = { 1 };
-        union scoordinate *cp = src2cp(src);
+	static union { int i; char c; } x = { 1 };
+	union scoordinate *cp = src2cp(src);
 
-        if (cp == NULL)
-                return NULL;
-        if (x.c == 1)
-                cp->le.flag = 0;
-        else
-                cp->be.flag = 0;
-        return breakhandler;
+	if (cp == NULL)
+		return NULL;
+	if (x.c == 1)
+		cp->le.flag = 0;
+	else
+		cp->be.flag = 0;
+	return breakhandler;
 }
 
-/* <nub functions>=                                                         */
 #define xx(z) do { \
-        if ((char *)address >= z.start && (char *)address < z.end) { \
-                if ((char *)address > z.end - nbytes) \
-                        n = z.end - (char *)address; \
-                else \
-                        n = nbytes; } } while (0)
+	if ((char *)address >= z.start && (char *)address < z.end) { \
+		if ((char *)address > z.end - nbytes) \
+			n = z.end - (char *)address; \
+		else \
+			n = nbytes; } } while (0)
 
 int _Nub_fetch(int space, void *address, void *buf, int nbytes) {
-        int n = 0;
+	int n = 0;
 
-        if (nbytes <= 0)
-                return 0;
-        xx(stack);
-        xx(data);
-        xx(text);
-        if (n > 0)
-                memcpy(buf, address, n);
-        return n;
+	if (nbytes <= 0)
+		return 0;
+	xx(stack);
+	xx(data);
+	xx(text);
+	if (n > 0)
+		memcpy(buf, address, n);
+	return n;
 }
 
 int _Nub_store(int space, void *address, void *buf, int nbytes) {
-        int n = 0;
+	int n = 0;
 
-        if (nbytes <= 0)
-                return 0;
-        xx(stack);
-        xx(data);
-        if (n > 0)
-                memcpy(address, buf, n);
-        return n;
+	if (nbytes <= 0)
+		return 0;
+	xx(stack);
+	xx(data);
+	if (n > 0)
+		memcpy(address, buf, n);
+	return n;
 }
 #undef xx
 
 int _Nub_frame(int n, Nub_state_T *state) {
-        if (fp == NULL)
-                return -1;
-        if (n == 0) {
-                fp = _Nub_tos;
-                frameno = 0;
-        } else {
-                while (n < frameno && fp->up)
-                        moveup();
-                while (n > frameno && fp->down)
-                        movedown();
-        }
-        set_state(fp, state);
-        return frameno;
+	if (fp == NULL)
+		return -1;
+	if (n == 0) {
+		fp = _Nub_tos;
+		frameno = 0;
+	} else {
+		while (n < frameno && fp->up)
+			moveup();
+		while (n > frameno && fp->down)
+			movedown();
+	}
+	set_state(fp, state);
+	return frameno;
 }
-/* <nub functions>=                                                         */
+
 void _Nub_src(Nub_coord_T src,
-        void apply(int i, Nub_coord_T *src, void *cl), void *cl) {
-        int i, n = 0;
+	void apply(int i, Nub_coord_T *src, void *cl), void *cl) {
+	int i, n = 0;
 
-        assert(apply);
-        for (i = 0; _Nub_modules[i]; i++) {
-                char **files = _Nub_modules[i]->files;
-                union scoordinate *cp = &_Nub_modules[i]->coordinates[1];
-                for ( ; cp->i; cp++)
-                        if (equal(&src, *cp, files)) {
-                                Nub_coord_T z;
-                                setcoord(*cp, _Nub_modules[i], &z);
-                                apply(n, &z, cl);
-                        }
-        }
+	assert(apply);
+	for (i = 0; _Nub_modules[i]; i++) {
+		char **files = _Nub_modules[i]->files;
+		union scoordinate *cp = &_Nub_modules[i]->coordinates[1];
+		for ( ; cp->i; cp++)
+			if (equal(&src, *cp, files)) {
+				Nub_coord_T z;
+				setcoord(*cp, _Nub_modules[i], &z);
+				apply(n, &z, cl);
+			}
+	}
 }
 
-/* <nub functions>=                                                         */
 int mAiN(int argc, char *argv[], char *envp[]) {
-        extern int main(int, char *[], char *[]);
-        extern void _Cdb_startup(Nub_state_T state), _Cdb_fault(Nub_state_T state);
-        _Nub_init(_Cdb_startup, _Cdb_fault);
-        return main(argc, argv, envp);
+	extern int main(int, char *[], char *[]);
+	extern void _Cdb_startup(Nub_state_T state), _Cdb_fault(Nub_state_T state);
+	_Nub_init(_Cdb_startup, _Cdb_fault);
+	return main(argc, argv, envp);
 }
-
