@@ -317,25 +317,26 @@ static void printsym(const struct ssymbol *sym, Nub_state_T *frame) {
 	name = _Sym_string(sym->module, sym->name);
 	switch (sym->sclass) {
 	case ENUM:
-		put("%s=%d", name, sym->offset);
+		put("%s=%d", name, sym->u.value);
 		break;
 	case TYPEDEF:
 		put("%s is a typedef for ", name);
 		tput(sym->module, sym->type);
 		break;
 	case EXTERN: case STATIC:
-		assert(sym->address);
-		put("%s@0x%x=", name, sym->address);
-		vput(sym->module, sym->type, sym->address);
+		assert(sym->u.address);
+		put("%s@0x%x=", name, sym->u.address);
+		vput(sym->module, sym->type, sym->u.address);
 		break;
 	default: {
 		void *addr;
 		if (sym->scope >= PARAM) {
-			assert(sym->offset);
-			addr = frame->fp + sym->offset;
+			int offset;
+			getvalue(DATA, sym->u.offaddr, &offset, sizeof *sym->u.offaddr);
+			addr = frame->fp + offset;
 		} else {
-			assert(sym->address);
-			addr = sym->address;
+			assert(sym->u.address);
+			addr = sym->u.address;
 		}
 		put("%s@0x%x=", name, addr);
 		vput(sym->module, sym->type, addr);
