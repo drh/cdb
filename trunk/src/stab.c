@@ -289,6 +289,18 @@ static void emit_symbol(Symbol p) {
 	lc = pad(maxalign, lc);
 }
 
+/* fileindex - returns the index in fileList of name, adding it if necessary */
+static int fileindex(char *name) {
+	int i, count;
+
+	count = Seq_length(fileList);
+	for (i = 0; i < count; i++)
+		if (Seq_get(fileList, i) == name)
+			return i;
+	Seq_addhi(fileList, name);
+	return count;
+}
+
 /* stabend - emits the symbol table */
 static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp[], Symbol *ignore) {
 	int nconstants, nmodules, nfiles, ncoordinates;
@@ -412,18 +424,6 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		fprintf(stderr, "%7d bytes total\n", total);
 	}
 #undef printit
-}
-
-/* fileindex - returns the index in fileList of name, adding it if necessary */
-static int fileindex(char *name) {
-	int i, count;
-
-	count = Seq_length(fileList);
-	for (i = 0; i < count; i++)
-		if (Seq_get(fileList, i) == name)
-			return i;
-	Seq_addhi(fileList, name);
-	return count;
 }
 
 /* tail - returns the current tail of the symbol table */
