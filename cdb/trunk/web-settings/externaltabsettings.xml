@@ -8,26 +8,6 @@
 			<item>
 				<attribute name="folderType" value="2"/>
 				<attribute name="unfolded" value="yes"/>
-				<attribute name="url" value="siteEntry://externals/Directories/"/>
-			</item>
-			<item>
-				<attribute name="externalUrl" value="http://www.cs.princeton.edu/software/lcc/cdb/2.2"/>
-				<attribute name="url" value="siteEntry://externals/Directories/2.2"/>
-				<attribute name="urlParams" value=""/>
-			</item>
-			<item>
-				<attribute name="externalUrl" value="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/"/>
-				<attribute name="url" value="siteEntry://externals/Directories/2.2%2520src"/>
-				<attribute name="urlParams" value=""/>
-			</item>
-			<item>
-				<attribute name="externalUrl" value="http://www.cs.princeton.edu/software/lcc/cdb/pkg"/>
-				<attribute name="url" value="siteEntry://externals/Directories/pkg"/>
-				<attribute name="urlParams" value=""/>
-			</item>
-			<item>
-				<attribute name="folderType" value="2"/>
-				<attribute name="unfolded" value="yes"/>
 				<attribute name="url" value="siteEntry://externals/Distributions/"/>
 			</item>
 			<item>
@@ -111,17 +91,17 @@
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
-				<attribute name="externalUrl" value="http://drh.home.dyndns.org/pubs/cdb.pdf"/>
+				<attribute name="externalUrl" value="http://storage.webhop.net/documents/cdb.pdf"/>
 				<attribute name="url" value="siteEntry://externals/Files/cdb%2520paper"/>
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
-				<attribute name="externalUrl" value="http://drh.home.dyndns.org/pubs/cdb.pdf"/>
+				<attribute name="externalUrl" value="http://storage.webhop.net/documents/cdb.pdf"/>
 				<attribute name="url" value="siteEntry://externals/Files/cdb%2520talk"/>
 				<attribute name="urlParams" value=""/>
 			</item>
 			<item>
-				<attribute name="externalUrl" value="http://drh.home.dyndns.org/pubs/cdb3.pdf"/>
+				<attribute name="externalUrl" value="http://storage.webhop.net/documents/cdb3.pdf"/>
 				<attribute name="url" value="siteEntry://externals/Files/cdb3%2520paper"/>
 				<attribute name="urlParams" value=""/>
 			</item>
@@ -172,7 +152,7 @@
 			</item>
 			<item>
 				<attribute name="folderType" value="7"/>
-				<attribute name="unfolded" value="no"/>
+				<attribute name="unfolded" value="yes"/>
 				<attribute name="url" value="siteEntry://externals/Scanned%2520URLs/"/>
 			</item>
 		</list>
