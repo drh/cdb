@@ -22,11 +22,28 @@ char *include[] = { "-I" LCCDIR "include", "-I/usr/local/include",
 char *com[] = { LCCDIR "rcc", "-target=sparc/solaris", "",
 	"$1", "$2", "$3", 0 };
 char *as[] = { "/usr/ccs/bin/as", "-Qy", "-s", "-o", "$3", "$1", "$2", 0 };
-char *ld[] = { "/usr/ccs/bin/ld", "", "-o", "$3", "$1",
-	SUNDIR "crti.o", SUNDIR "crt1.o",
-	SUNDIR "values-xa.o", "$2", "",
-	"-Y", "P," SUNDIR ":/usr/ccs/lib:/usr/lib", "-Qy",
-	"-L" LCCDIR, "-llcc", "", "-lm", "-lc", SUNDIR "crtn.o", "", 0 };
+static char *ld2[] = {
+	/*  0 */ "sh",
+	/*  1 */ LCCDIR "prelink.sh", "-o",
+	/*  3 */ ".o", "$2", "\n",
+	/*  6 */ "/usr/ccs/bin/ld", "-o", "$3", "$1", SUNDIR "crti.o",
+	/* 11 */ SUNDIR "crt1.o", SUNDIR "values-xa.o", "$2",
+	/* 14 */ ".o",
+	/* 15 */ LCCDIR "startup.o", "-Y",
+	/* 17 */ "P," SUNDIR ":/usr/ccs/lib:/usr/lib", "-Qy",
+	/* 19 */ "-L" LCCDIR, "-llcc", "-lnub", "-lsocket", "-lnsl", "-lm", "-lc", SUNDIR "crtn.o",
+	/* 27 */ "\n", "rm", "-f",
+	/* 30 */ ".o",
+	/* 31 */ ".c",
+	/* 32 */ 0
+};
+char *ld[sizeof ld2/sizeof ld2[0]] = {
+	/*  0 */ "/usr/ccs/bin/ld", "-o", "$3", "$1", SUNDIR "crti.o",
+	/*  5 */ SUNDIR "crt1.o", SUNDIR "values-xa.o", "$2", "-Y",
+	/*  9 */ "P," SUNDIR ":/usr/ccs/lib:/usr/lib", "-Qy",
+	/* 11 */ "-L" LCCDIR, "-llcc", "-lm", "-lc", SUNDIR "crtn.o",
+	/* 16 */ 0
+	};
 
 extern char *stringf(const char *, ...);
 
@@ -37,31 +54,32 @@ int option(char *arg) {
 			lccdir[strlen(lccdir)-1] = '\0';
 		cpp[0] = stringf("%s/cpp", lccdir);
 		include[0] = stringf("-I%s/include", lccdir);
-		ld[13] = stringf("-L%s", lccdir);
+		ld[11] = stringf("-L%s", lccdir);
 		com[0] = stringf("%s/rcc", lccdir);
+		ld2[1] = stringf("%s/prelink.sh", lccdir);
+		ld2[15] = stringf("%s/startup.o", lccdir);
+		ld2[19] = ld[11];
 	} else if (strcmp(arg, "-g") == 0)
 		;
 	else if (strcmp(arg, "-p") == 0) {
 		ld[5] = SUNDIR "mcrt1.o";
-		ld[11] = "P," SUNDIR "libp:/usr/ccs/lib/libp:/usr/lib/libp:"
+		ld[9] = "P," SUNDIR "libp:/usr/ccs/lib/libp:/usr/lib/libp:"
 			 SUNDIR ":/usr/ccs/lib:/usr/lib";
+		ld2[11] = ld[5];
+		ld2[17] = ld[9];
 	} else if (strcmp(arg, "-b") == 0)
 		;
-	else if (strncmp(arg, "-ld=", 4) == 0)
+	else if (strncmp(arg, "-ld=", 4) == 0) {
 		ld[0] = &arg[4];
-	else if (strcmp(arg, "-g4") == 0) {
+		ld2[0] = &arg[4];
+	}  else if (strcmp(arg, "-g4") == 0) {
 		extern char *tempdir;
 		extern int getpid(void);
-		char *tmp = stringf("%s/%d", tempdir, getpid());
-		if (lccdir[strlen(lccdir)-1] == '/')
-			lccdir[strlen(lccdir)-1] = '\0';
-		ld[0] = stringf("sh %s/prelink.sh -o %s.o", lccdir, tmp);
-		ld[1] = "$2";
-		ld[2] = "\n/usr/ccs/bin/ld -o";
-		ld[6] = stringf("%s/startup.o", lccdir);
-		ld[9] = stringf("%s.o", tmp);
-		ld[15] = "-lnub -lsocket -lnsl";
-		ld[19] = stringf("\nrm -f %s.obj %s.c", tmp, tmp);
+		ld2[3] = stringf("%s/%d.o", tempdir, getpid());
+		ld2[14] = ld2[3];
+		ld2[30] = ld2[3];
+		ld2[31] = stringf("%s/%d.c", tempdir, getpid());
+		memcpy(ld, ld2, sizeof ld2);
 		com[2] = "-g4";
 	} else
 		return 0;
