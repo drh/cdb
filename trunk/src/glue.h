@@ -63,8 +63,11 @@ union scoordinate {
 };
 
 struct ssymbol {
-        int offset;
-        void *address;
+	union {
+		int value;
+		void *address;
+		int *offaddr;
+	} u;
 	u4 self;
         u4 name;
         u4 file;

@@ -1,3 +1,8 @@
+#include "mem.h"
+#undef NEW
+#undef NEW0
+#undef ELSE
+#undef RETURN
 #define NDEBUG
 #include "c.h"
 #undef NDEBUG
@@ -15,8 +20,7 @@ static int maxalign;
 static Symbol module;
 static u4 uid;
 static char *filelist[32+1];
-static int epoints;
-static List coordlist;
+static Seq_T coordList;
 static Symbol coordinates;
 static Symbol nub_bp;
 static Symbol nub_tos;
@@ -29,6 +33,7 @@ struct cnst {
 };
 static Seq_T constantList;
 static Table_T constantTable;
+static Table_T offsets;
 static u4 constantIndex = 1;
 
 /* comment - emits an assembly language comment */
@@ -276,23 +281,19 @@ static void emit_symbol(Symbol p) {
 	int lc;
 
 	if (p->y.p != NULL)
-		defglobal(p->y.p, DATA);
+		defglobal(p->y.p, LIT);
 	switch (p->sclass) {
 	case ENUM:
 		lc = emit_value(0, inttype, (long)p->u.value);
-		lc = emit_value(lc, voidptype, NULL);
 		break;
 	case TYPEDEF:
 		lc = emit_value(0, inttype, 0L);
-		lc = emit_value(lc, voidptype, NULL);
 		break;
 	case STATIC: case EXTERN:
-		lc = emit_value(0, inttype, 0L);
-		lc = emit_value(lc, voidptype, p);
+		lc = emit_value(0, voidptype, p);
 		break;
 	default:
-		lc = emit_value(0, inttype, 0L);
-		lc = emit_value(lc, voidptype, p->scope >= PARAM ? NULL : p);
+		lc = emit_value(0, voidptype, p->scope >= PARAM ? Table_get(offsets, p) : p);
 	}
 	lc = emit_value(lc, unsignedtype, symbolindex(p));
 	lc = emit_string(lc, p->name);
@@ -311,16 +312,15 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 	Symbol files, consts;
 
 	{	/* emit coordinates */
-		int i, lc;
-		Coordinate **cpp = ltov(&coordlist, PERM);
+		int lc, count;
 		comment("coordinates:\n");
 		defglobal(coordinates, DATA);
 		lc = emit_value(0, unsignedtype, 0UL);
 		lc = pad(maxalign, lc);
 		ncoordinates = lc;
-		for (i = 0; cpp[i]; i++) {
+		for (count = Seq_length(coordList); count > 0; count--) {
 			static int n;
-			Coordinate *cp = cpp[i];
+			Coordinate *cp = Seq_remlo(coordList);
 			union scoordinate w;
 			w.i = 0;
 			if (IR->little_endian) {
@@ -341,12 +341,13 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = emit_value(0, unsignedtype, 0UL);
 		lc = pad(maxalign, lc);
 		ncoordinates += lc;
+		Seq_free(&coordList);
 	}
 	{	/* emit files */
 		int i = 0, lc;
 		files = genident(STATIC, array(ptr(chartype), 1, 0), GLOBAL);
 		comment("files:\n");
-		defglobal(files, DATA);
+		defglobal(files, LIT);
 		lc = emit_value(0, voidptype, NULL);
 		lc = pad(maxalign, lc);
 		nfiles = lc;
@@ -354,11 +355,21 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 			lc = emit_value(0, voidptype, mkstr(filelist[i])->u.c.loc);
 			lc = pad(maxalign, lc);
 			nfiles += lc;
-
-			}
+		}
 		lc = emit_value(0, voidptype, NULL);
 		lc = pad(maxalign, lc);
 		nfiles += lc;
+	}
+	{	/* emit local offset cells */
+		int i;
+		void **offs = Table_toArray(offsets, NULL);
+		comment("offset cells:\n");
+		for (i = 0; offs[i] != NULL; i += 2) {
+			comment("%s:\n", ((Symbol)offs[i])->name);
+			defglobal(offs[i+1], DATA);
+			(*IR->space)(inttype->size);
+		}
+		FREE(offs);
 	}
 	{
 		Symbol p;
@@ -405,7 +416,7 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 	{	/* emit module */
 		int lc;
 		comment("module:\n");
-		defglobal(module, DATA);
+		defglobal(module, LIT);
 		lc = emit_value( 0, unsignedtype, (unsigned long)uid);
 		lc = emit_value( 0, voidptype, coordinates);
 		lc = emit_value(lc, voidptype, files);
@@ -415,6 +426,7 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = pad(maxalign, lc);
 		nmodules = lc;
 	}
+	Table_free(&offsets);
 	Table_free(&constantTable);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x
 	{
@@ -463,8 +475,7 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 		
 	NEW(p, PERM);
 	*p = *cp;
-	coordlist = append(p, coordlist);
-	epoints++;
+	Seq_addhi(coordList, p);
 	/*
 	add breakpoint test to *e:
 	(module.coordinates[i].i < 0 && _Nub_bp(i, tail), *e)
@@ -473,23 +484,29 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 			(*optree['<'])(LT,
 				rvalue((*optree['+'])(ADD,
 					pointer(idtree(coordinates)),
-					cnsttree(inttype, (long)epoints))),
+					cnsttree(inttype, (long)Seq_length(coordList)))),
 				consttree(0, inttype)),
 			calltree(pointer(idtree(nub_bp)), voidtype,
 				tree(ARG+P, voidptype, retype(idtree(tail()), voidptype), tree(
-				     ARG+I, inttype, cnsttree(inttype, (long)epoints), NULL)),
+				     ARG+I, inttype, cnsttree(inttype, (long)Seq_length(coordList)), NULL)),
 				NULL)
 		       ), *e);
 }
 
 /* setoffset - emits code to set the offset field for p */
 static void setoffset(Symbol p, void *tos) {
+	Symbol off = Table_get(offsets, p);
+
+	if (off == NULL) {
+		off = genident(STATIC, inttype, GLOBAL);
+		Table_put(offsets, p, off);
+	}
 	if (p->y.p == NULL) {
 		p->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
 		symbolindex(p);
 	}
 	walk(asgntree(ASGN,
-		rvalue(pointer(idtree(p->y.p))),
+		idtree(off),
 		(*optree['-'])(SUB,
 			cast(isarray(p->type) ? pointer(idtree(p)) : lvalue(idtree(p)), ptr(chartype)),
 			cast(lvalue(idtree(tos)), ptr(chartype)))), 0, 0);
@@ -573,7 +590,7 @@ static void call_hook(void *cl, Coordinate *cp, Tree *e) {
 	*e = right(
 		asgntree(ASGN,
 			field(lvalue(idtree(tos)), string("ip")),
-			consttree(epoints, inttype)),
+			consttree(Seq_length(coordList), inttype)),
 		*e);
 }
 
@@ -590,10 +607,12 @@ static void stabinit(char *file, int argc, char *argv[]) {
 		leader = " #";  /* it's a MIPS or ALPHA */
 	constantTable = Table_new(0, NULL, NULL);
 	constantList = Seq_new(0);
+	offsets = Table_new(0, NULL, NULL);
 	uid = time(NULL)<<7|getpid();
 	module = mksymbol(AUTO,	stringf("_module__V%x", uid), array(unsignedtype, 0, 0));
 	module->generated = 1;
 	coordinates = genident(STATIC, array(inttype, 1, 0), GLOBAL);
+	coordList = Seq_new(0);
 	attach((Apply) entry_hook, NULL, &events.entry);
 	attach((Apply) block_hook, NULL, &events.blockentry);
 	attach((Apply) point_hook, NULL, &events.points);
