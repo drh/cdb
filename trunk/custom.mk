@@ -37,5 +37,5 @@ src/inits.c:	$(SRCDIR)/src/inits.c makefile
 		echo '}\nextern int main(int, char *[]);' >>$@
 
 packing.lst:	src/inits.c custom.mk
-		ls src/*.[ch] src/*.sh etc/*.c startup/*.o* README makefile lookup.[ch] wf.c >$@
+		ls src/*.asdl src/*.[ch] src/*.sh etc/*.c startup/*.o* README makefile lookup.[ch] wf.c >$@
 		echo $@ >>$@
