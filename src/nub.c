@@ -171,12 +171,12 @@ Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
 }
 
 Nub_callback_T _Nub_remove(Nub_coord_T src) {
-	static union { int i; char c; } x = { 1 };
+	static union { int i; char endian; } little = { 1 };
 	union scoordinate *cp = src2cp(src);
 
 	if (cp == NULL)
 		return NULL;
-	if (x.c == 1)
+	if (little.endian == 1)
 		cp->le.flag = 0;
 	else
 		cp->be.flag = 0;
@@ -186,7 +186,7 @@ Nub_callback_T _Nub_remove(Nub_coord_T src) {
 static int valid(const char *address, int nbytes) {
 #define xx(z) do { \
 	if (address >= z.start && address < z.end) { \
-		if (z.end - address < nbytes) \
+		if (nbytes < z.end - address) \
 			return z.end - address; \
 		else \
 			return nbytes; } } while (0)
