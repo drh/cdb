@@ -1,5 +1,6 @@
 # $Id$
-CC=lcc
+# CC MUST be the same compiler that compiled lcc 4.1
+CC=cc
 CFLAGS	= -g
 # Configuration:
 # SRCDIR	root of the lcc 4.1 distribution
@@ -9,7 +10,7 @@ CFLAGS	= -g
 # LDFLAGS	-L options for librcc.a (in the lcc build directory)
 # LIBS		libraries, including socket and network libraries
 SRCDIR	= /u/drh/pkg/lcc/4.1
-INCLUDES= -I/usr/local/lib/cii/1/include -I$(SRCDIR)/src -I$(ASDL_HOME)/include/asdlGen -I$(BUILDDIR)
+INCLUDES= -I/usr/local/lib/cii/1/include -I$(SRCDIR)/src
 HOSTFILE=etc/solaris.c
 BUILDDIR= $(SRCDIR)/sparc-solaris
 LDFLAGS	= -g -L$(BUILDDIR)
@@ -27,7 +28,7 @@ all::		libnub cdb rcc lcc prelink
 prelink:	$Bprelink.sh
 lcc:		$Blcc$E
 rcc:		$Brcc$E
-libnub:		$Blibnub$A
+libnub:		$Blibnub$A $Bclientstub$O
 cdb:		$Bcdb$E
 
 $Blcc$E:	$Blcc$O $Bhost$O;	$(CC) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
@@ -35,32 +36,31 @@ $Blcc$E:	$Blcc$O $Bhost$O;	$(CC) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
 $Blcc$O:	$(SRCDIR)/etc/lcc.c;	$(CC) -v -c $(CFLAGS) -o $@ $(SRCDIR)/etc/lcc.c
 $Bhost$O:	$(HOSTFILE);		$(CC) -c $(CFLAGS) -o $@ $(HOSTFILE)
  
-$Blibnub$A:	$Bclient$O $Bnub$O $Bcomm$O
+$Blibnub$A:	$Bclient$O $Bnub$O $Bsymstub$O $Bcomm$O
 		ar ruv $@ $?
 
 $Bprelink.sh:	src/prelink.sh;		cp src/prelink.sh $@; chmod +x $@
 
-$Brcc$E:	$Bstab$O $Binits$O $Bsym$O
-		$(CC) $(LDFLAGS) -o $@ $Bstab$O $Binits$O $Bsym$O -lrcc -lcii -L$(ASDL_HOME)/lib/asdlGen -lasdl
+$Brcc$E:	$Bstab$O $Binits$O
+		$(CC) $(LDFLAGS) -o $@ $Bstab$O $Binits$O -lrcc -lcii
 
 $Binits$O:	src/inits.c;	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/inits.c
 
 CDBOBJS=$Bserver$O \
 	$Bcomm$O \
 	$Bcdb$O \
-	$Bsym$O \
 	$Bsymtab$O
 
 $Bcdb$E:	$(CDBOBJS)
 		$(CC) $(LDFLAGS) -o $@ $(CDBOBJS) $(LIBS)
 
-$Bcdb$O:	src/cdb.c src/server.h src/glue.h src/nub.h src/symtab.h $Bsym.h
+$Bcdb$O:	src/cdb.c src/server.h src/glue.h src/nub.h src/symtab.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/cdb.c
 
 $Bcomm$O:	src/comm.c src/comm.h src/server.h
 		$(CC) -c $(CFLAGS) -o $@ src/comm.c
 
-$Bserver$O:	src/server.c src/comm.h src/glue.h src/nub.h src/server.h src/symtab.h $Bsym.h
+$Bserver$O:	src/server.c src/comm.h src/glue.h src/nub.h src/server.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/server.c
 
 $Bclient$O:	src/client.c src/comm.h src/glue.h src/nub.h src/server.h
@@ -78,14 +78,8 @@ $Bsymstub$O:	src/symstub.c src/symtab.h
 $Bsymtab$O:	src/symtab.c src/symtab.h src/glue.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/symtab.c
 
-$Bstab$O:	src/stab.c src/glue.h $Bsym.h
+$Bstab$O:	src/stab.c src/glue.h
 		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ src/stab.c
-
-$Bsym.h:	src/sym.asdl
-		$(ASDL_HOME)/bin/asdlGen --c -d $B src/sym.asdl
-
-$Bsym$O:	$Bsym.h
-		$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ $Bsym.c
 
 stubtest:	wf.c lookup.c $Bcdb$O
 		$Blcc -Wo-lccdir=$(BUILDDIR) -v -Wo-g4 wf.c lookup.c $Bcdb$O \

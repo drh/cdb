@@ -1,9 +1,7 @@
 #define NDEBUG
 #include "c.h"
 #undef NDEBUG
-#include "pkl-int.h"
 #include "glue.h"
-#include "sym.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <time.h>
@@ -13,20 +11,25 @@
 static char rcsid[] = "$Id$";
 
 static char *leader;
-static sym_module_ty pickle;
+static int maxalign;
 static Symbol module;
-static unsigned uname;
+static unsigned uid;
+static Seq_T coordList;
+static Seq_T fileList;
+static Symbol coordinates;
 static Symbol nub_bp;
-static Symbol nub_bpflags;
 static Symbol nub_tos;
 static Symbol tos;
+struct cnst {
+	enum { cString, cType, cSymbol } tag;
+	Symbol label;
+	int length;
+	const void *ptr;
+};
+static Table_T constantTable;
+static Seq_T constantList;
 static Seq_T locals;
-static Seq_T statics;
-static Table_T uidTable;
-static int maxalign;
-
-static int typeuid(const Type);
-static int symboluid(const Symbol);
+static union { int i; char endian; } little = { 1 };
 
 char *string(const char *str) {
 	return (char *)Atom_string(str);
@@ -85,216 +88,395 @@ static int emit_value(int lc, Type ty, ...) {
 	return lc + ty->size;
 }
 
-/* typeuid - returns ty's uid, adding the type, if necessary */
-static int typeuid(const Type ty) {
-	sym_type_ty type;
+/* stringindex - returns str's label, adding it if necessary */
+static Symbol stringindex(const char *str) {
+	struct cnst *p = Table_get(constantTable, str);
 
-	if (ty->x.typeno != 0)
-		return ty->x.typeno;
-	ty->x.typeno = pickle->nuids++;
+	if (p == NULL) {
+		NEW(p, PERM);
+		p->tag = cString;
+		p->ptr = str;
+		p->length = strlen(str) + 1;
+		p->label = genident(STATIC, array(chartype, p->length, 0), GLOBAL);
+		Table_put(constantTable, str, p);
+		Seq_addhi(constantList, p);
+	}
+	assert(p->label);
+	return p->label;
+}
+
+/* emit_string - emits the index of a string */
+static int emit_string(int lc, char *str) {
+	if (str)
+		return emit_value(lc, voidptype, stringindex(str));
+	else
+		return emit_value(lc, voidptype, NULL);
+}
+
+/* typeindex - returns ty's label, adding it if necessary */
+static Symbol typeindex(Type ty) {
+	struct stype stype;
+	struct cnst *p = Table_get(constantTable, ty);
+
+	if (p != NULL)
+		return p->label;
+	NEW(p, PERM);
+	p->tag = cType;
+	p->ptr = ty;
+	p->label = genident(STATIC, array(voidptype, 0, 0), GLOBAL);
+	p->length = offsetof(struct stype, u); 
+	Table_put(constantTable, ty, p);
+	Seq_addhi(constantList, p);
 	switch (ty->op) {
-#define xx(op) case op: type = sym_##op(ty->size, ty->align); break
-	xx(INT);
-	xx(UNSIGNED);
-	xx(FLOAT);
-	xx(VOID);
-#undef xx
-#define xx(op) case op: type = sym_##op(ty->size, ty->align, typeuid(ty->type)); break
-	xx(POINTER);
-	xx(CONST);
-	xx(VOLATILE);
-#undef xx
+	case VOID: case FLOAT: case INT: case UNSIGNED:
+		break;
+	case VOLATILE: case CONST+VOLATILE: case CONST:
+		p->length += sizeof stype.u.q;
+		typeindex(ty->type);
+		break;
+	case POINTER:
+		p->length += sizeof stype.u.p;
+		typeindex(ty->type);
+		break;
 	case ARRAY:
-		type = sym_ARRAY(ty->size, ty->align, typeuid(ty->type), 0);
-		if (ty->type->size > 0)
-			type->v.sym_ARRAY.nelems = ty->size/ty->type->size;
+		p->length += sizeof stype.u.a;
+		typeindex(ty->type);
 		break;
-	case CONST+VOLATILE:
-		type = sym_CONST(ty->size, ty->align, typeuid(ty->type));
-		break;
-	case ENUM: {
-		list_ty ids = Seq_new(0);
-		int i;
-		for (i = 0; ty->u.sym->u.idlist[i] != NULL; i++)
-			Seq_addhi(ids, sym_enum_(ty->u.sym->u.idlist[i]->name,
-				ty->u.sym->u.idlist[i]->u.value));
-		assert(i > 0);
-		type = sym_ENUM(ty->size, ty->align, ty->u.sym->name, ids);
-		break;
+	case FUNCTION:
+		p->length += sizeof stype.u.f - sizeof stype.u.f.args;
+		if (ty->u.f.proto) {
+			int i;
+			for (i = 0; ty->u.f.proto[i] != NULL; i++) {
+				p->length += sizeof stype.u.f.args;
+				typeindex(ty->u.f.proto[i]);
+			}
 		}
+		break;
 	case STRUCT: case UNION: {
-		list_ty fields = Seq_new(0);
-		Field p = fieldlist(ty);
-		for ( ; p != NULL; p = p->link)
-			Seq_addhi(fields, sym_field(p->name, typeuid(p->type), p->offset, p->bitsize, p->lsb));
-		if (ty->op == STRUCT)
-			type = sym_STRUCT(ty->size, ty->align, ty->u.sym->name, fields);
-		else
-			type = sym_UNION (ty->size, ty->align, ty->u.sym->name, fields);
+		Field f;
+		p->length += sizeof stype.u.s - sizeof stype.u.s.fields;
+		for (f = fieldlist(ty); f != NULL; f = f->link) {
+			p->length += sizeof stype.u.s.fields;
+			typeindex(f->type);
+		}
 		break;
 		}
-	case FUNCTION: {
-		list_ty formals = Seq_new(0);
-		if (ty->u.f.proto != NULL && ty->u.f.proto[0] != NULL) {
+	case ENUM: {
+		int i;
+		p->length += sizeof stype.u.e - sizeof stype.u.e.enums;
+		for (i = 0; ty->u.sym->u.idlist[i] != NULL; i++)
+			p->length += sizeof stype.u.e.enums;
+		break;
+		}
+	default:assert(0);
+	}
+	return p->label;
+}
+
+/* emit_type - emits an initialized stype structure for ty */
+static void emit_type(const Type ty) {
+	int lc;
+	struct stype stype;
+	struct cnst *p = Table_get(constantTable, ty);
+
+	assert(ty);
+	assert(p);
+	lc = emit_value( 0, unsignedshort, (unsigned long)p->length);
+	lc = emit_value(lc, unsignedchar,  (unsigned long)ty->op);
+	lc = emit_value(lc, unsignedtype,  (unsigned long)ty->size);
+	switch (ty->op) {
+	case VOID: case FLOAT: case INT: case UNSIGNED:
+		break;
+	case VOLATILE: case CONST+VOLATILE: case CONST:
+	case POINTER:
+		lc = emit_value(lc, voidptype, typeindex(ty->type));
+		break;
+	case ARRAY:
+		lc = emit_value(lc, voidptype, typeindex(ty->type));
+		if (ty->type->size > 0)
+			lc = emit_value(lc, unsignedtype, (unsigned long)ty->size/ty->type->size);
+		else
+			lc = emit_value(lc, unsignedtype, 0UL);
+		break;
+	case FUNCTION:
+		lc = emit_value(lc, voidptype, typeindex(ty->type), lc);
+		if (ty->u.f.proto) {
 			int i;
 			for (i = 0; ty->u.f.proto[i] != NULL; i++)
-				Seq_addhi(formals, to_generic_int(typeuid(ty->u.f.proto[i])));
-		} else if (ty->u.f.proto != NULL && ty->u.f.proto[0] == NULL)
-			Seq_addhi(formals, to_generic_int(typeuid(voidtype)));
-		type = sym_FUNCTION(ty->size, ty->align, typeuid(ty->type), formals);
+				lc = emit_value(lc, voidptype, typeindex(ty->u.f.proto[i]));
+		}
+		break;
+	case STRUCT: case UNION: {
+		Field f;
+		lc = emit_string(lc, ty->u.sym->name);
+		for (f = fieldlist(ty); f; f = f->link) {
+			lc = emit_string(lc, f->name);
+			lc = emit_value(lc, voidptype, typeindex(f->type));
+			if (f->lsb) {
+				union offset o;
+				if (little.endian) {
+					o.le.size = -fieldsize(f) + 1;
+					o.le.lsb = fieldright(f);
+					o.le.offset = f->offset;
+				} else {
+					o.be.size = -fieldsize(f) + 1;
+					o.be.lsb = fieldright(f);
+					o.be.offset = f->offset;
+				}
+				lc = emit_value(lc, unsignedtype, (unsigned long)o.offset);
+			} else
+				lc = emit_value(lc, unsignedtype, (unsigned long)f->offset);
+		}
 		break;
 		}
-	default: assert(0);
+	case ENUM: {
+		Symbol p;
+		int i;
+		lc = emit_string(lc, ty->u.sym->name);
+		for ( ; (p = ty->u.sym->u.idlist[i]) != NULL; i++) {
+			lc = emit_string(lc, p->name);
+			lc = emit_value(lc, inttype, (long)p->u.value);
+		}
+		break;
+		}
+	default:assert(0);
 	}
-	Seq_addhi(pickle->items, sym_Type(ty->x.typeno, type));
-	return ty->x.typeno;
+	lc = pad(maxalign, lc);
+}
+
+/* symbolindex - returns sym's label, adding it if necessary */
+static Symbol symbolindex(const Symbol sym) {
+	struct cnst *p;
+
+	if (sym == NULL)
+		return NULL;
+	p = Table_get(constantTable, sym);
+	if (p == NULL) {
+		NEW(p, PERM);
+		p->tag = cSymbol;
+		p->ptr = sym;
+		p->label = genident(STATIC, array(voidptype, 0, 0), GLOBAL);
+		p->length = sizeof (struct ssymbol);
+		Table_put(constantTable, sym, p);
+		Seq_addhi(constantList, p);
+	}
+	assert(p->label);
+	return p->label;
 }
 
 /* up - returns p's non-external ancestor */
 static Symbol up(Symbol p) {
 	while (p != NULL && p->defined == 0
 	       && (p->sclass == EXTERN || isfunc(p->type) && p->sclass == AUTO))
-		p = p->up;
+			p = p->up;
 	return p;
 }
 
-/* symboluid - returns sym's uid, adding the symbol, if necessary */
-static int symboluid(const Symbol p) {
-	int uid;
-	sym_symbol_ty sym;
+/* emit_symbol - emits an initialized ssymbol structure for p */
+static void emit_symbol(Symbol p) {
+	int lc;
 
-	if (p == NULL)
-		return 0;
-	sym = Table_get(uidTable, p);
-	if (sym != NULL)
-		return sym->uid;
-	uid = pickle->nuids++;
 	switch (p->sclass) {
 	case ENUM:
-		sym = sym_ENUMCONST(p->name, uid, uname, NULL, 0, 0,
-			p->u.value);
-		sym->type = typeuid(inttype);
+		lc = emit_value(0, inttype, (long)p->u.value);
 		break;
 	case TYPEDEF:
-		sym = sym_TYPEDEF(p->name, uid, uname, NULL, 0, 0);
-		sym->type = typeuid(p->type);
+		lc = emit_value(0, inttype, 0L);
+		break;
+	case STATIC: case EXTERN:
+		lc = emit_value(0, voidptype, p);
 		break;
 	default:
-		if (p->sclass == STATIC) {
-			sym = sym_STATIC(p->name, uid, uname, NULL, 0, 0,
-					 Seq_length(statics));
-			Seq_addhi(statics, p);
-		} else if (p->scope == GLOBAL || p->sclass == EXTERN) {
-			sym = sym_GLOBAL(p->name, uid, uname, NULL, 0, 0,
-					 Seq_length(statics));
-			Seq_addhi(statics, p);
-		} else if (p->scope == PARAM)
-			sym = sym_PARAM(p->name, uid, uname, NULL, 0, 0,
-				p->x.offset);
-		else {
-			assert(p->scope >= LOCAL);
-			sym = sym_LOCAL(p->name, uid, uname, NULL, 0, 0,
-				p->x.offset);
-		}
-		sym->type = typeuid(p->type);
+		if (p->scope >= PARAM)
+			lc = emit_value(0, inttype, p->x.offset);
+		else
+			lc = emit_value(0, voidptype, p);
 	}
-	Table_put(uidTable, p, sym);
-	Seq_addhi(pickle->items, sym_Symbol(uid, sym));
-	sym->src = sym_coordinate(p->src.file, p->src.x, p->src.y);
-	sym->uplink = symboluid(up(p->up));
-	return sym->uid;
+	lc = emit_string(lc, p->name);
+	lc = emit_string(lc, p->src.file);
+	lc = emit_value(lc, unsignedchar, (unsigned long)(p->scope > LOCAL ? LOCAL : p->scope));
+	lc = emit_value(lc, unsignedchar, (unsigned long)p->sclass);
+	lc = emit_value(lc, voidptype, module);
+	lc = emit_value(lc, voidptype, typeindex(p->type));
+	lc = emit_value(lc, voidptype, symbolindex(up(p->up)));
+	lc = pad(maxalign, lc);
+}
+
+/* fileindex - returns the index in fileList of name, adding it if necessary */
+static int fileindex(char *name) {
+	int i, count;
+
+	count = Seq_length(fileList);
+	for (i = 0; i < count; i++)
+		if (Seq_get(fileList, i) == name)
+			return i;
+	Seq_addhi(fileList, name);
+	return count;
 }
 
 /* stabend - emits the symbol table */
 static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp[], Symbol *ignore) {
-	Symbol addresses;
-	int naddresses, nmodule;
+	int nconstants, nmodules, nfiles, ncoordinates;
+	Symbol files, consts, tails;
 
+	{	/* emit coordinates and symbol-table tails */
+		int i, lc, count = Seq_length(coordList);
+		comment("coordinates:\n");
+		defglobal(coordinates, DATA);
+		lc = emit_value(0, unsignedtype, 0UL);
+		lc = pad(maxalign, lc);
+		ncoordinates = lc;
+		for (i = 0; i < count; i += 2) {
+			static int n;
+			Coordinate *cp = Seq_get(coordList, i);
+			union scoordinate w;
+			w.i = 0;
+			if (little.endian) {
+				w.le.index = fileindex(cp->file);
+				w.le.x = cp->x;
+				w.le.y = cp->y;                                 
+			} else {
+				w.be.index = fileindex(cp->file);
+				w.be.x = cp->x;
+				w.be.y = cp->y;
+			}                               
+			comment("%d: %s(%d) %d.%d\n", ++n, cp->file ? cp->file : "",
+				fileindex(cp->file), cp->y, cp->x);
+			lc = emit_value(0, unsignedtype, (unsigned long)w.i);
+			lc = pad(maxalign, lc);
+			ncoordinates += lc;
+		}
+		lc = emit_value(0, unsignedtype, 0UL);
+		lc = pad(maxalign, lc);
+		ncoordinates += lc;
+		comment("symbol-table tails:\n");
+		tails = genident(STATIC, array(inttype, 1, 0), GLOBAL);
+		defglobal(tails, LIT);
+		lc = emit_value(0, voidptype, NULL);
+		for (i = 1; i < count; i += 2)
+			lc = emit_value(lc, voidptype, Seq_get(coordList, i));
+		lc = pad(maxalign, lc);
+		ncoordinates += lc;
+		Seq_free(&coordList);
+	}
+	{	/* emit files */
+		int lc, count;
+		files = genident(STATIC, array(ptr(chartype), 1, 0), GLOBAL);
+		comment("files:\n");
+		defglobal(files, LIT);
+		nfiles = 0;
+		for (count = Seq_length(fileList); count > 0; count--) {
+			lc = emit_string(0, Seq_remlo(fileList));
+			lc = pad(maxalign, lc);
+			nfiles += lc;
+		}
+		lc = emit_value(0, voidptype, NULL);
+		lc = pad(maxalign, lc);
+		nfiles += lc;
+		Seq_free(&fileList);
+	}
 	{	/* annotate top-level symbols */
 		Symbol p;
 		for (p = symroot; p != NULL; p = up(p->up))
-			symboluid(p);
-		pickle->globals = symboluid(symroot);
+			symbolindex(p);
 	}
-	{	/* emit addresses of top-level and static symbols */
-		int i, lc = 0, count = Seq_length(statics);
-		addresses = genident(STATIC, array(voidptype, 1, 0), GLOBAL);
-		comment("addresses:\n");
-		defglobal(addresses, LIT);
-		for (i = 0; i < count; i++) {
-			Symbol p = Seq_get(statics, i);
-			lc = emit_value(lc, voidptype, p);
+	{	/* emit constants */
+		consts = genident(STATIC, array(unsignedtype, 1, 0), GLOBAL);
+		comment("constants:\n");
+		defglobal(consts, LIT);
+		nconstants = 0;
+		while (Seq_length(constantList) > 0) {
+			struct cnst *p = Seq_remlo(constantList);
+			nconstants = roundup(nconstants, p->label->type->align);
+			switch (p->tag) {
+			case cType:
+				comment("cType %t\n", p->ptr);
+				defglobal(p->label, LIT);
+				emit_type((void *)p->ptr);
+				break;
+			case cString:
+				comment("cString \"%s\"\n", p->ptr);
+				defglobal(p->label, LIT);
+				(*IR->defstring)(p->length, (char *)p->ptr);
+				break;
+			case cSymbol: {
+				const Symbol q = (void *)p->ptr;
+				defglobal(p->label, LIT);
+				comment("cSymbol %s\n", typestring(q->type, q->name));
+				emit_symbol(q);
+				break;
+				}
+			default: assert(0);
+			}
+			nconstants += p->length;
 		}
-		lc = pad(maxalign, lc);
-		naddresses = lc;
-		Seq_free(&statics);
-	}
-	{	/* emit bp count as an alias for the module */
-		Symbol spoints = mksymbol(AUTO,
-			stringf("_spoints_V%x_%d", uname, Seq_length(pickle->spoints)),
-			array(unsignedtype, 0, 0));
-		spoints->generated = 1;
-		defglobal(spoints, LIT);
+		Seq_free(&constantList);
 	}
 	{	/* emit module */
 		int lc;
 		comment("module:\n");
 		defglobal(module, LIT);
-		lc = emit_value( 0, unsignedtype, (unsigned long)uname);
-		lc = emit_value(lc, voidptype, addresses);
+		lc = emit_value( 0, voidptype, coordinates);
+		lc = emit_value(lc, voidptype, tails);
+		lc = emit_value(lc, voidptype, files);
+		lc = emit_value(lc, voidptype, symbolindex(symroot));
+		lc = emit_value(lc, unsignedtype, (long)nconstants);
+		lc = emit_value(lc, voidptype, consts);
 		lc = pad(maxalign, lc);
-		nmodule = lc;
+		nmodules = lc;
 	}
+	Table_free(&constantTable);
 	Seq_free(&locals);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x
 	{
 		int total = 0;
-		printit(addresses);
-		printit(module);
+		printit(coordinates);
+		printit(files);
+		printit(constants);
+		printit(modules);
 		fprintf(stderr, "%7d bytes total\n", total);
 	}
 #undef printit
-	{	/* complete and write symbol-table pickle */
-		FILE *f = fopen(stringf("%d.pickle", uname), "wb");
-		sym_write_module(pickle, f);
-		fclose(f);
-	}
 }
 
 /* tail - returns the current tail of the symbol table */
-static int tail(void) {
+static Symbol tail(void) {
 	Symbol p = allsymbols(identifiers);
 
 	p = up(p);
 	if (p)
-		return symboluid(p);
+		return symbolindex(p);
 	else
-		return 0;
+		return NULL;
 }
 
 /* point_hook - called at each execution point */
 static void point_hook(void *cl, Coordinate *cp, Tree *e) {
+	Coordinate *p;
 	Tree t;
-	
+		
+	NEW(p, PERM);
+	*p = *cp;
+	Seq_addhi(coordList, p);
+	Seq_addhi(coordList, tail());
 	/*
 	add breakpoint test to *e:
-	(_Nub_bpflags[i] < 0 && _Nub_bp(i), *e)
+	(module.coordinates[i].i < 0 && _Nub_bp(i), *e)
 	*/
 	t = tree(AND, voidtype,
-		(*optree[NEQ])(NE,
+		(*optree['<'])(LT,
 			rvalue((*optree['+'])(ADD,
-				pointer(idtree(nub_bpflags)),
-				cnsttree(inttype, Seq_length(pickle->spoints)))),
+				pointer(idtree(coordinates)),
+				cnsttree(inttype, Seq_length(coordList)/2L))),
 			cnsttree(inttype, 0L)),
-		vcall(nub_bp, voidtype, cnsttree(inttype, Seq_length(pickle->spoints)), NULL));
+		vcall(nub_bp, voidtype, cnsttree(inttype, Seq_length(coordList)/2L), NULL));
 	if (*e)
 		*e = tree(RIGHT, (*e)->type, t, *e);
 	else
 		*e = t;
-	Seq_addhi(pickle->spoints, sym_spoint(sym_coordinate(cp->file, cp->x, cp->y), tail()));
 }
 
-/* setoffset - remember p for later adjustment of its offset */
+/* setoffset - emits code to set the offset field for p */
 static void setoffset(Symbol p, void *tos) {
 	Seq_addhi(locals, p);
 	p->addressed = 1;
@@ -317,8 +499,8 @@ static void entry_hook(void *cl, Symbol cfunc) {
 	ty->size += t->size
 	addfield("up",    voidptype);
 	addfield("down",  voidptype);
-	addfield("func",  inttype);
-	addfield("module",inttype);
+	addfield("func",  voidptype);
+	addfield("module",voidptype);
 	addfield("ip",    inttype);     
 #undef addfield
 	ty->size = roundup(ty->size, ty->align);
@@ -333,8 +515,8 @@ static void entry_hook(void *cl, Symbol cfunc) {
 	*/
 #define set(name,e) walk(asgntree(ASGN,field(lvalue(idtree(tos)),string(#name)),(e)),0,0)
 	set(down,       idtree(nub_tos));
-	set(func,       cnsttree(inttype, symboluid(cfunc)));
-	set(module,     cnsttree(inttype, uname));
+	set(func,       idtree(stringindex(cfunc->name)));
+	set(module,     idtree(module));
 #undef set
 	walk(asgn(nub_tos, lvalue(idtree(tos))), 0, 0);
 	foreach(identifiers, PARAM, setoffset, tos);
@@ -352,14 +534,7 @@ static void stabfend(Symbol cfunc, int lineno) {
 
 	for ( ; count > 0; count--) {
 		Symbol p = Seq_remlo(locals);
-		sym_symbol_ty sym = Table_get(uidTable, p);
 		p->x.offset -= tos->x.offset;
-		assert(sym);
-		switch (sym->kind) {
-		case sym_LOCAL_enum: sym->v.sym_LOCAL.offset = p->x.offset; break;
-		case sym_PARAM_enum: sym->v.sym_PARAM.offset = p->x.offset; break;
-		default: assert(0);
-		}
 	}
 	tos = NULL;
 }
@@ -375,7 +550,7 @@ the C expression
 
 	(tos.ip = i, *e)
 
-where i is the stopping point index for the execution point of the
+where i is the index in coordinates for the execution point of the
 expression in which the call appears.
 */
 static void call_hook(void *cl, Coordinate *cp, Tree *e) {
@@ -383,7 +558,7 @@ static void call_hook(void *cl, Coordinate *cp, Tree *e) {
 	*e = tree(RIGHT, (*e)->type,
 		asgntree(ASGN,
 			field(lvalue(idtree(tos)), string("ip")),
-			cnsttree(inttype, Seq_length(pickle->spoints))),
+			cnsttree(inttype, Seq_length(coordList)/2L)),
 		*e);
 }
 
@@ -398,15 +573,16 @@ static void stabinit(char *file, int argc, char *argv[]) {
 		leader = ";";
 	else
 		leader = " #";  /* it's a MIPS or ALPHA */
-	uname = time(NULL)<<7|getpid();
-	pickle = sym_module(file, uname, 1, Seq_new(0), 0, Seq_new(0));
+	constantTable = Table_new(0, NULL, NULL);
+	constantList = Seq_new(0);
+	fileList = Seq_new(0);
+	Seq_addhi(fileList, NULL);
 	locals = Seq_new(0);
-	statics = Seq_new(0);
-	uidTable = Table_new(0, 0, 0);
-	module = mksymbol(AUTO,	stringf("_module_V%x", uname), array(unsignedtype, 0, 0));
+	uid = time(NULL)<<7|getpid();
+	module = mksymbol(AUTO,	stringf("_module__V%x", uid), array(unsignedtype, 0, 0));
 	module->generated = 1;
-	nub_bpflags = mksymbol(EXTERN, "_Nub_bpflags", array(chartype, 1, 0));
-	nub_bpflags->defined = 0;
+	coordinates = genident(STATIC, array(inttype, 1, 0), GLOBAL);
+	coordList = Seq_new(0);
 	attach((Apply) entry_hook, NULL, &events.entry);
 	attach((Apply) block_hook, NULL, &events.blockentry);
 	attach((Apply) point_hook, NULL, &events.points);

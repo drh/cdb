@@ -4,6 +4,9 @@ Debugger," Software--Practice and Experience 26 (11), 1277-1299, Nov.
 1996; this paper is available at
 http://www.research.microsoft.com/~drh/pubs/cdb.pdf.
 
+For more information about cdb, visit
+http://www.cs.princeton.edu/software/lcc/cdb/.
+
 Contents
 ~~~~~~~~
 README	this file.
@@ -32,7 +35,7 @@ The list below summarizes the differences between this implementation
 of cdb and the published description in "A Machine-Independent
 Debugger".
 
-+ This version works only with lcc 4.0, and it requires the C
++ This version works only with lcc 4.1, and it requires the C
 Interfaces and Implementations (CII) library; see
 http://www.cs.princeton.edu/software/cii/ for the CII distribution.
 
@@ -85,19 +88,16 @@ The following steps describe the installation under Solaris. Similar
 steps apply to Windows NT 4.0. Under NT, you'll need a UNIX-style
 shell and Visual C++ 5.0; I use the MKS Toolkit.
 
-1. Install lcc 4.0 (http://www.cs.princeton.edu/software/lcc/) and
-the CII library (http://www.cs.princeton.edu/software/cii/). You'll
-need the updated versions of etc/lcc.c (rcsid 4.14 or better) and
-src/expr.c (rcsid 2.22 or better) to build the cdb components; visit
-the lcc web page to download these files before building lcc 4.0.
+1. Install lcc 4.1 (http://www.cs.princeton.edu/software/lcc/) and
+the CII library (http://www.cs.princeton.edu/software/cii/).
 
 2. Create a file, custom.mk, that redefines the definitions at the
 top of the makefile to suit your local configuration. Make sure
-BUILDDIR points to the lcc 4.0 build directory.
+BUILDDIR points to the lcc 4.1 build directory.
 
 3. Edit etc/solaris.c, or a copy, to suit your local configuration.
 This file is a variant of the etc/solaris.c driver back end included
-in the lcc 4.0 distribution. It supports the -Wo-g4 option, which
+in the lcc 4.1 distribution. It supports the -Wo-g4 option, which
 causes lcc to emit cdb-style symbol tables.
 
 4. Run make:
@@ -111,14 +111,12 @@ custom.mk. I use different names for different platforms, e.g.,
 
 Depending on the values of file timestamps, you might have to touch
 etc/solaris.c or src/inits.c, or remove the corresponding object
-files, to force rebuilding of lcc or rcc. Important: Use the same C
+files, to force rebuilding of lcc or rcc. IMPORTANT: Use the same C
 compiler you used to build lcc.
 
-5. Copy the startup code to the build directory, and chmod the
-prelinker script:
+5. Copy the startup code to the build directory:
 
 	1% cp startup/solaris.o ${BUILDDIR}/startup.o
-	1% chmod +x ${BUILDDIR}/prelink.sh
 
 Notice that the name of the installed startup code is startup.o.
 
@@ -141,7 +139,7 @@ The documentation in "A Machine-Independent Debugger" applies; the
 Then run cdb:
 
 	1% ${BUILDDIR}/cdb
-	/u/drh/pkg/4.0/sparc-solaris/cdb listening on 0.0.0.0:9001
+	/u/drh/pkg/4.1/sparc-solaris/cdb listening on 0.0.0.0:9001
 
 In a separate window, set the DEBUGGER environment variable run a.out:
 
@@ -151,7 +149,7 @@ In a separate window, set the DEBUGGER environment variable run a.out:
 
 In the cdb window, you should see something like:
 
-	/u/drh/pkg/4.0/sparc-solaris/cdb: now serving 127.0.0.1:47632
+	/u/drh/pkg/4.1/sparc-solaris/cdb: now serving 127.0.0.1:47632
 	cdb>
 
 When you exit the client, cdb waits for another connection.
