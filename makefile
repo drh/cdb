@@ -32,7 +32,7 @@ cdb:		$Bcdb$E
 
 $Blcc$E:	$Blcc$O $Bhost$O;	$(CC) $(LDFLAGS) -o $@ $Blcc$O $Bhost$O
 
-$Blcc$O:	$(SRCDIR)/etc/lcc.c;	$(CC) -v -c $(CFLAGS) -o $@ $(SRCDIR)/etc/lcc.c
+$Blcc$O:	$(SRCDIR)/etc/lcc.c;	$(CC) -c $(CFLAGS) -o $@ $(SRCDIR)/etc/lcc.c
 $Bhost$O:	$(HOSTFILE);		$(CC) -c $(CFLAGS) -o $@ $(HOSTFILE)
  
 $Blibnub$A:	$Bclient$O $Bnub$O $Bcomm$O
