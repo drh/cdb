@@ -1,11 +1,27 @@
-This hierarchy holds the implementation of cdb, debugger described
-in D. R. Hanson and M. Raghavachari, "A Machine-Independent
+This hierarchy holds the implementation of cdb, the debugger
+described in D. R. Hanson and M. Raghavachari, "A Machine-Independent
 Debugger," Software--Practice and Experience 26 (11), 1277-1299, Nov.
 1996; this paper is available at
 http://www.research.microsoft.com/~drh/pubs/cdb.pdf.
 
 Contents
 ~~~~~~~~
+README	this file.
+
+makefile
+
+lookup.[ch] wf.c
+	sample problem described in "A Machine-Independent Debugger".
+
+src/*.[ch]
+	source code for cdb, the prelinker script, and the symbol-table
+	emitter additions to lcc.
+
+etc/*.c	lcc driver back ends modified to support the -Wo-g4 option.
+
+startup/{*.o,*.obj}
+	platform-specific startup code modified to start the nub.
+	Only startup/solaris.o and startup/win32.obj have been tested.
 
 Differences
 ~~~~~~~~~~~
@@ -13,45 +29,136 @@ The list below summarizes the differences between this implementation
 of cdb and the published description in "A Machine-Independent
 Debugger".
 
-+ This version works only with lcc 4.0.
++ This version works only with lcc 4.0, and it requires the C
+Interfaces and Implementations (CII) library; see
+http://www.cs.princeton.edu/software/cii/ for the CII distribution.
 
 + A bare "b" command lists the current breakpoints as "r" commands.
 
-+ The 2-process version, cdb runs as a server and the program being
-debugged is the client.  src/server.c is the server side of the RPC
-channel and src/client.c is the client side. (These roles are
-reversed in Table 1 and Figure 6 in the paper.)
++ The 2-process version, cdb runs as a server and the target (the
+program being debugged) is the client. src/server.c is the server
+side of the RPC channel and src/client.c is the client side. (These
+roles are reversed in Table 1 and Figure 6 in the paper.) cdb can
+run on a different machine than the target, but the machines must
+have the same type metrics and endianness.
 
 + The 2-process version uses sockets instead of pipes.
 
 + Strings, types, and symbol-table entries are stored in a contiguous
-portion of read-only memory (the LIT segment).
+region of read-only memory (the LIT segment); src/symtab.c inhales
+entire regions across the network at once.
 
 + Symbol-table entries for locals are initialized with the frame
-offsets at compile time, which means src/stab.c depends on lcc's back
-ends. This change permits the symbol-table entries to be stored in
+offsets at compile time, so src/stab.c depends on lcc's back ends.
+This change permits the symbol-table entries to be stored in
 read-only memory.
 
 + Modules hold pointers to coordinates, symbol-table tails, files,
 globals, and the list of strings, types, and symbol-table entries.
-Symbol-table entries point back to their module. Only the array of
+Symbol-table entries point back to their modules. Only the array of
 coordinates is stored in writable memory.
 
-+ There is no link symbol; a module point to the list of its globals.
-src/symtab.c includes functions that iterate over all the visible
-symbols in all modules.
++ There is no link symbol; a module's globals field points to the
+list of its file-scope symbols. src/symtab.c includes functions that
+iterate over all the visible symbols in all modules.
 
-+ _Nub_bp takes only one argument, the index of the stopping point
-from which it computes the symbol-table tail..
++ _Nub_bp takes only one argument, the index of the stopping point,
+and it computes the symbol-table tail.
 
 + Shadow frames no longer include symbol-table tail fields, because
-the tail is computed by the number from the stopping point number. 
+tails are computed from stopping point numbers. 
 
 + cdbld has been replaced by src/prelink.sh, which is run before the
 linker, but does not replace it.
 
 Installation
 ~~~~~~~~~~~~
+This version of cdb has been installed and (lightly) tested on
+Solaris and Windows NT 4.0. Installation involves building cdb and
+rebuilding rcc (lcc's compiler proper) and lcc (lcc's compilation
+driver).
 
-David R. Hanson / drh@microsoft.com / http://www.research.microsoft.com/~drh/
+The following steps describe the installation under Solaris. Similar
+steps apply to Windows NT 4.0. Under NT, you'll need a UNIX-style
+shell and Visual C++ 5.0; I use the MKS Toolkit.
+
+1. Install lcc 4.0 (http://www.cs.princeton.edu/software/lcc/) and
+the CII library (http://www.cs.princeton.edu/software/cii/). You'll
+need the updated version of src/expr.c to compile cdb; visit the lcc
+web page to download src/expr.c before building lcc 4.0.
+
+2. Create a file, custom.mk, that redefines the definitions at the
+top of the makefile to suit you local configuration. Make sure
+BUILDDIR points to the lcc 4.0 build directory.
+
+3. Edit etc/solaris.c, or a copy, to suit your local configuration.
+This file is a variant of the etc/solaris.c driver back end included
+in the lcc 4.0 distribution.
+
+4. Run make:
+
+	1% make CUSTOM=custom.mk
+
+You can omit the assignments if your local configuration is in
+custom.mk; I use different names for different platforms, e.g.,
+
+	1% make CUSTOM=solaris.mk
+
+Depending on the values of file time stamps, you might have to touch
+etc/solaris.c or src/inits.c to force rebuilding of rcc and lcc.
+
+5. Copy the startup code to the build directory:
+
+	1% cp startup/solaris.o $BUILDDIR/startup.o
+
+Notice that the name of the installed startup code is startup.o.
+
+6. Test the single-process version of cdb by building the sample program:
+
+	1% make CUSTOM=custom.mk stubtest
+
+Then run a.out:
+
+	1% a.out
+	cdb> 
+
+The documentation in "A Machine-Independent Debugger" applies; the
+"h" commands summarizes the commands.
+
+7. Test the two-process version of cdb. Build the sample program with
+
+	1% make CUSTOM=custom.mk test
+
+then run cdb:
+
+	1% $(BUILDDIR)/cdb
+	/u/drh/pkg/4.0/sparc-solaris/cdb listening on 0.0.0.0:9001
+
+In a separate window, run a.out:
+
+	2% setenv DEBUGGER localhost:9001
+	2% a.out
+	client: connected on 127.0.0.1:47632 to 127.0.0.1:9001
+
+In the cdb window, you should see something like:
+
+	/u/drh/pkg/4.0/sparc-solaris/cdb: now serving 127.0.0.1:47632
+	cdb>
+
+When you exit the client, cdb waits for another connection.
+
+8. "make CUSTOM=custom.mk clean" cleans up.
+
+9. (Optional) Add a link to cdb from /usr/local, e.g.,
+
+	ln -s /usr/local/lib/lcc/cdb /usr/local/bin/cdb
+
+Bugs and Suggestions
+~~~~~~~~~~~~~~~~~~~~
+Send email to drh@microsoft.com. I can't promise timely responses or
+patches, but I intend to keep cdb in sync with lcc.
+
+------------
+David R. Hanson / drh@microsoft.com
+http://www.research.microsoft.com/~drh/
 $Id$
