@@ -12,20 +12,17 @@ static char rcsid[] = "$Id$";
 
 static char *leader;
 static int maxalign;
-static int nsymbols;
 static Symbol module;
 static u4 uid;
 static char *filelist[32+1];
 static int epoints;
 static List coordlist;
 static Symbol coordinates;
-static List symbollist;
-static Symbol link;
 static Symbol nub_bp;
 static Symbol nub_tos;
 static Symbol tos;
 struct cnst {
-	enum { cString, cType, cSym } tag;
+	enum { cString, cType, cSymbol } tag;
 	u4 index;
 	int length;
 	const void *ptr;
@@ -99,10 +96,9 @@ static unsigned long stringindex(const char *str) {
 
 /* emit_string - emits the index of a string */
 static int emit_string(int lc, char *str) {
-	assert(str);
-	if (str) {
+	if (str)
 		return emit_value(lc, unsignedtype, stringindex(str));
-	} else
+	else
 		return emit_value(lc, unsignedtype, 0L);
 }
 
@@ -174,8 +170,8 @@ static unsigned long typeindex(Type ty) {
 	return p->index;
 }
 
-/* emit_type - emits an stype structure and returns its index */
-static u4 emit_type(const Type ty) {
+/* emit_type - emits an initialized stype structure for ty */
+static void emit_type(const Type ty) {
 	int lc;
 	struct stype stype;
 	struct cnst *p = Table_get(constantTable, ty);
@@ -243,65 +239,70 @@ static u4 emit_type(const Type ty) {
 	default:assert(0);
 	}
 	lc = pad(maxalign, lc);
-	assert(lc == p->length);
+}
+
+/* symbolindex - returns the constant index of sym, adding it and its predecessors, if necessary */
+static unsigned long symbolindex(const Symbol sym) {
+	struct cnst *p;
+
+	if (sym == NULL)
+		return 0;
+	p = Table_get(constantTable, sym);
+	if (p == NULL) {
+		NEW(p, PERM);
+		p->tag = cSymbol;
+		p->ptr = sym;
+		Table_put(constantTable, sym, p);
+		constantIndex = roundup(constantIndex, unsignedtype->align);
+		p->index = constantIndex;
+		p->length = sizeof (struct ssymbol);
+		constantIndex += p->length;
+		Seq_addhi(constantList, p);
+	}
+	assert(p->index);
 	return p->index;
 }
 
-/* emit_symbol - emits an initialized ssymbol for p, annotates p,
-and returns symbol-table entry for that initialized variable
-*/
-static Symbol emit_symbol(Symbol p) {
-	while (p && (!p->defined
-	&& (p->sclass == EXTERN || isfunc(p->type) && p->sclass == AUTO)))
+/* up - returns p's non-external ancestor */
+static Symbol up(Symbol p) {
+	while (p != NULL && p->defined == 0
+	       && (p->sclass == EXTERN || isfunc(p->type) && p->sclass == AUTO))
 		p = p->up;
-	if (p == NULL)
-		return NULL;
-	if (!p->y.emitted) {
-		int lc;
-		Symbol up;
-		p->y.emitted = 1;
-		up = emit_symbol(p->up);
-		if (p->y.p == NULL)
-			p->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
-		comment("%s\n", typestring(p->type, p->name));
-		defglobal(p->y.p, DATA);
-		switch (p->sclass) {
-		case ENUM:
-			lc = emit_value(0, inttype, (long)p->u.value);
-			lc = emit_value(lc, voidptype, NULL);
-			break;
-		case TYPEDEF:
-			lc = emit_value(0, inttype, 0L);
-			lc = emit_value(lc, voidptype, NULL);
-			break;
-		case STATIC: case EXTERN:
-			lc = emit_value(0, inttype, 0L);
-			lc = emit_value(lc, voidptype, p);
-			break;
-		default:
-			lc = emit_value(0, inttype, 0L);
-			lc = emit_value(lc, voidptype, p->scope >= PARAM ? NULL : p);
-		}
-		lc = emit_string(lc, p->name);
-		if (p->src.file)
-			lc = emit_string(lc, p->src.file);
-		else
-			lc = emit_value(lc, voidptype, NULL);
-		lc = emit_value(lc, unsignedchar, (unsigned long)(p->scope > LOCAL ? LOCAL : p->scope));
-		lc = emit_value(lc, unsignedchar, (unsigned long)p->sclass);
-		lc = emit_value(lc, voidptype, module);
-		lc = emit_value(lc, unsignedtype, typeindex(p->type));
-		if (up == NULL)
-			lc = emit_value(lc, voidptype, NULL);
-		else if (p->scope == GLOBAL || up->scope != GLOBAL)
-			lc = emit_value(lc, voidptype, up->y.p);
-		else
-			lc = emit_value(lc, voidptype, link);
-		lc = pad(maxalign, lc);
-		nsymbols += lc;
-
-	}
 	return p;
+}
+
+/* emit_symbol - emits an initialized ssymbol structure for p */
+static void emit_symbol(Symbol p) {
+	int lc;
+
+	if (p->y.p != NULL)
+		defglobal(p->y.p, DATA);
+	switch (p->sclass) {
+	case ENUM:
+		lc = emit_value(0, inttype, (long)p->u.value);
+		lc = emit_value(lc, voidptype, NULL);
+		break;
+	case TYPEDEF:
+		lc = emit_value(0, inttype, 0L);
+		lc = emit_value(lc, voidptype, NULL);
+		break;
+	case STATIC: case EXTERN:
+		lc = emit_value(0, inttype, 0L);
+		lc = emit_value(lc, voidptype, p);
+		break;
+	default:
+		lc = emit_value(0, inttype, 0L);
+		lc = emit_value(lc, voidptype, p->scope >= PARAM ? NULL : p);
+	}
+	lc = emit_value(lc, unsignedtype, symbolindex(p));
+	lc = emit_string(lc, p->name);
+	lc = emit_string(lc, p->src.file);
+	lc = emit_value(lc, unsignedchar, (unsigned long)(p->scope > LOCAL ? LOCAL : p->scope));
+	lc = emit_value(lc, unsignedchar, (unsigned long)p->sclass);
+	lc = emit_value(lc, voidptype, module);
+	lc = emit_value(lc, unsignedtype, typeindex(p->type));
+	lc = emit_value(lc, unsignedtype, symbolindex(up(p->up)));
+	lc = pad(maxalign, lc);
 }
 
 /* stabend - emits the symbol table */
@@ -309,26 +310,6 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 	int nconstants, nmodules, nfiles, ncoordinates;
 	Symbol files, consts;
 
-	{	/* emit symbols */
-		Symbol p, *allsyms = ltov(&symbollist, PERM);
-		int i, lc;
-		for (i = 0; allsyms[i]; i++)
-			emit_symbol(allsyms[i]);
-		p = emit_symbol(symroot);
-		comment("the link symbol\n");
-		defglobal(link, DATA);
-		lc = emit_value(0, inttype, 0L);
-		lc = emit_value(lc, voidptype, NULL);
-		lc = emit_value(lc, voidptype, NULL);
-		lc = emit_value(lc, voidptype, NULL);
-		lc = emit_value(lc, unsignedchar, 0L);
-		lc = emit_value(lc, unsignedchar, 0L);
-		lc = emit_value(lc, voidptype, module);
-		lc = emit_value(lc, unsignedtype, 0L);
-		lc = emit_value(lc, voidptype, p->y.p);
-		lc = pad(maxalign, lc);
-		nsymbols += lc;
-	}
 	{	/* emit coordinates */
 		int i, lc;
 		Coordinate **cpp = ltov(&coordlist, PERM);
@@ -379,9 +360,16 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = pad(maxalign, lc);
 		nfiles += lc;
 	}
+	{
+		Symbol p;
+		if (symroot->y.p == NULL)
+			symroot->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
+		for (p = symroot; p != NULL; p = up(p->up))
+			symbolindex(p);
+	}
 	{	/* emit constants */
 		int lc;
-		consts = genident(STATIC, array(chartype, 1, 0), GLOBAL);
+		consts = genident(STATIC, array(unsignedtype, 1, 0), GLOBAL);
 		comment("constants:\n");
 		defglobal(consts, LIT);
 		lc = emit_value(0, chartype, 0L);
@@ -399,12 +387,19 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 				comment("cString index=%d \"%s\"\n", lc, p->ptr);
 				(*IR->defstring)(p->length, (char *)p->ptr);
 				break;
+			case cSymbol: {
+				const Symbol q = (void *)p->ptr;
+				lc = pad(unsignedtype->align, lc);
+				assert(lc == p->index);
+				comment("cSymbol index=%d %s\n", lc, typestring(q->type, q->name));
+				emit_symbol(q);
+				break;
+				}
 			default: assert(0);
 			}
 			lc += p->length;
 		}
 		nconstants = pad(maxalign, lc);
-		Table_free(&constantTable);
 		Seq_free(&constantList);
 	}
 	{	/* emit module */
@@ -414,18 +409,18 @@ static void stabend(Coordinate *cp, Symbol symroot, Coordinate *cpp[], Symbol sp
 		lc = emit_value( 0, unsignedtype, (unsigned long)uid);
 		lc = emit_value( 0, voidptype, coordinates);
 		lc = emit_value(lc, voidptype, files);
-		lc = emit_value(lc, voidptype, link);
+		lc = emit_value(lc, voidptype, symroot->y.p);
 		lc = emit_value(lc, unsignedtype, (unsigned long)nconstants);
 		lc = emit_value(lc, voidptype, consts);
 		lc = pad(maxalign, lc);
 		nmodules = lc;
 	}
+	Table_free(&constantTable);
 #define printit(x) fprintf(stderr, "%7d " #x "\n", n##x); total += n##x
 	{
 		int total = 0;
 		printit(coordinates);
 		printit(files);
-		printit(symbols);
 		printit(constants);
 		printit(modules);
 		fprintf(stderr, "%7d bytes total\n", total);
@@ -451,17 +446,15 @@ static int fileindex(char *name) {
 static Symbol tail(void) {
 	Symbol p = allsymbols(identifiers);
 
-	while (p && (!p->defined
-	&& (p->sclass == EXTERN || isfunc(p->type) && p->sclass == AUTO)))
-		p = p->up;
-	if (p) {	/* append p to symbollist */
+	p = up(p);
+	if (p) {
 		if (p->y.p == NULL) {
 			p->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
-			symbollist = append(p, symbollist);
+			symbolindex(p);
 		}
 		return p->y.p;
 	} else
-		return link;
+		return NULL;
 }
 
 /* point_hook - called at each execution point */
@@ -491,9 +484,9 @@ static void point_hook(void *cl, Coordinate *cp, Tree *e) {
 
 /* setoffset - emits code to set the offset field for p */
 static void setoffset(Symbol p, void *tos) {
-	if (p->y.p == NULL) {	/* append p to symbollist */
+	if (p->y.p == NULL) {
 		p->y.p = genident(STATIC, array(inttype, 0, 0), GLOBAL);
-		symbollist = append(p, symbollist);
+		symbolindex(p);
 	}
 	walk(asgntree(ASGN,
 		rvalue(pointer(idtree(p->y.p))),
@@ -601,7 +594,6 @@ static void stabinit(char *file, int argc, char *argv[]) {
 	module = mksymbol(AUTO,	stringf("_module__V%x", uid), array(unsignedtype, 0, 0));
 	module->generated = 1;
 	coordinates = genident(STATIC, array(inttype, 1, 0), GLOBAL);
-	link = genident(STATIC, array(unsignedtype, 0, 0), GLOBAL);
 	attach((Apply) entry_hook, NULL, &events.entry);
 	attach((Apply) block_hook, NULL, &events.blockentry);
 	attach((Apply) point_hook, NULL, &events.points);

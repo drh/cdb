@@ -9,7 +9,7 @@ struct module {
 	u4 uid;
         union scoordinate *coordinates;
         char **files;
-        struct ssymbol *link;
+	struct ssymbol *link;
 	u4 length;
 	const char *constants;
 };
@@ -65,13 +65,14 @@ union scoordinate {
 struct ssymbol {
         int offset;
         void *address;
+	u4 self;
         u4 name;
         u4 file;
         unsigned char scope;
         unsigned char sclass;
 	struct module *module;
         u4 type;
-        struct ssymbol *uplink;
+	u4 uplink;
 };
 
 struct sframe {
