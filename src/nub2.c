@@ -10,9 +10,6 @@
 #include "nub.h"
 
 static char rcsid[] = "$Id$";
-#ifndef debug
-#define debug(x) (void)0
-#endif
 
 static int equal(Nub_coord_T *src, sym_coordinate_ty w)  {
 	/*
@@ -81,7 +78,6 @@ static void onbp(Nub_state_T state) {
 	struct bpoint *b;
 
 	_Nub_state(&state, &frame);
-	debug(fprintf(stderr, "(break@%s:%d.%d=%d/%d)\n", state.src.file, state.src.y, state.src.x, frame.ip, frame.module));
 	for (b = bpoints; b != NULL; b = b->link)
 		if (b->ip == frame.ip && b->module == frame.module) {
 			(*bphandler)(state);
@@ -107,7 +103,6 @@ Nub_callback_T _Nub_set(Nub_coord_T src, Nub_callback_T onbreak) {
 	}
 	b->ip = ip;
 	b->module = module;
-	debug(fprintf(stderr, "(_Nub_set@%s:%d.%d=%d/%d)\n", src.file, src.y, src.x, ip, module));
 	bphandler = onbreak;
 	breakhandler = onbp;
 	return prev;
@@ -126,7 +121,6 @@ Nub_callback_T _Nub_remove(Nub_coord_T src) {
 				count++;
 			prev = &b->link;
 		}
-	debug(fprintf(stderr, "(_Nub_remove@%s:%d.%d=%d/%d;%d)\n", src.file, src.y, src.x, ip, module, count));
 	if (count == 0) {
 		char flag = 0;
 		int n = _Nub_store(1, (char *)NULL + ip, &flag, 1);
