@@ -3,7 +3,6 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 <title>cdb 3.1</title>
-<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
 <link HREF="http://drh.home.dyndns.org/" REV="made" TITLE="David R. Hanson">
 </head>
 
@@ -12,14 +11,18 @@
 <h1>cdb 3.1</h1>
 
 <p>This hierarchy holds the implementation of cdb version 3.1, the debugger described in
-D. R. Hanson, &quot;A Machine-Independent Debugger&#151;Revisited&quot;, Tech. Rep.
-MSR-TR-99-4, Microsoft Research, Redmond, WA, Jan. 1999; this paper is available at <a
-href="http://storage.webhop.net/documents/msr-tr-99-4.pdf">http://storage.webhop.net/documents/msr-tr-99-4.pdf</a>.</p>
+D. R. Hanson,
+&lsquo;A Machine-Independent Debugger&mdash;Revisited&rsquo;,
+<cite>Software&mdash;Practice and Experience</cite> <strong>29</strong> (10), 849-862, Aug. 1999; 
+this paper is available at
+<a href="http://storage.webhop.net/documents/cdb3.pdf">http://storage.webhop.net/documents/cdb3.pdf</a>.</p>
 
-<p>The initial version of cdb is described in D. R. Hanson and M. Raghavachari, &quot;A
-Machine-Independent Debugger&quot;, Software&#151;Practice and Experience <strong>26</strong>
-(11), 1277-1299, 11/96, which is available at <a
-href="http://storage.webhop.net/documents/cdb.pdf">http://storage.webhop.net/documents/cdb.pdf</a>.</p>
+<p>The initial version of cdb is described in
+D. R. Hanson and M. Raghavachari,
+&lsquo;A Machine-Independent Debugger&rsquo;,
+<cite>Software&mdash;Practice and Experience</cite> <strong>26</strong> (11), 1277-1299, 11/96,
+which is available at
+<a href="http://storage.webhop.net/documents/cdb.pdf">http://storage.webhop.net/documents/cdb.pdf</a>.</p>
 
 <p>For more information about cdb, visit <a
 href="http://www.cs.princeton.edu/software/lcc/cdb/">http://www.cs.princeton.edu/software/lcc/cdb/</a>.</p>
@@ -29,12 +32,10 @@ href="http://www.cs.princeton.edu/software/lcc/cdb/">http://www.cs.princeton.edu
 <dl>
   <dt><a href="readme.html"><code>readme.html</code></a></dt>
   <dd>this file.</dd>
-  <dt><a href="packing.lst"><code>packing.lst</code></a></dt>
-  <dd>a list of the files in the distribution.</dd>
   <dt><a href="makefile"><code>makefile</code></a></dt>
-  <dd>&quot;make&quot; instructions for building cdb.</dd>
+  <dd><code>make</code> instructions for building cdb.</dd>
   <dt><code>lookup.[ch] wf.c</code></dt>
-  <dd>sample program described in &quot;A Machine-Independent Debugger&quot;.</dd>
+  <dd>sample program described in &lsquo;A Machine-Independent Debugger&rsquo;.</dd>
   <dt><code><a href="src">src</a>/*.[ch]</code></dt>
   <dd>source code for cdb, the nub, the RPC code, the prelinker script, and the symbol-table
     emitter additions to lcc.</dd>
@@ -47,14 +48,14 @@ href="http://www.cs.princeton.edu/software/lcc/cdb/">http://www.cs.princeton.edu
 
 <h2>Differences</h2>
 
-<p>&quot;A Machine-Independent Debugger&quot; describes the initial version of cdb. <a
+<p>&lsquo;A Machine-Independent Debugger&rsquo; describes the initial version of cdb. <a
 href="http://www.cs.princeton.edu/software/lcc/cdb/2.x.html">http://www.cs.princeton.edu/software/lcc/cdb/2.x.html</a>
 describes the differences between the initial version and version 2.2. The list below
 summarizes the differences between version 3.1 and cdb 2.2. For all the details, see
-&quot;A Machine-Independent Debugger&#151;Revisited&quot;.</p>
+&lsquo;A Machine-Independent Debugger&mdash;Revisited&rsquo;.</p>
 
 <p>This version works only with lcc 4.1, and it requires the ASDL generator, asdlGen (<a
-href="http://www.cs.princeton.edu/zephyr/ASDL/">http://www.cs.princeton.edu/zephyr/ASDL/</a>),
+href="http://sourceforge.net/projects/asdl/">http://sourceforge.net/projects/asdl/</a>),
 and the C Interfaces and Implementations (CII) library (<a
 href="http://www.cs.princeton.edu/software/cii/">http://www.cs.princeton.edu/software/cii/</a>).</p>
 
@@ -65,7 +66,7 @@ the client side. (These roles are reversed in Table 1 and Figure 6 in the initia
 paper.) cdb can run on a different machine than the target, but the machines must have the
 same type metrics and endianness.</p>
 
-<p>All strings, types, and symbol-table entries are stored in an ASDL &quot;pickle&quot;,
+<p>All strings, types, and symbol-table entries are stored in an ASDL &lsquo;pickle&rsquo;,
 which is named <em>X</em><code>.pickle</code>, where <em>X</em> is the unique module
 identifier. <a href="src/sym.asdl"><code>src/sym.asdl</code></a> defines the relevant data
 structures. cdb reads pickles when a client attaches.</p>
@@ -86,17 +87,18 @@ and rebuilding rcc (lcc's compiler proper) and lcc (lcc's compilation driver).</
 
 <p>The following steps describe the installation under Solaris and Linux. Similar steps
 apply to Windows NT 4.0. Under NT, you'll need a UNIX-style shell and Visual C++ 5.0 or
-6.0; I use the <a href="http://www.mks.com/solution/tk/">MKS Toolkit</a>. 
+6.0. 
 
 <ol>
   <li>Install lcc 4.1 (<a href="http://www.cs.princeton.edu/software/lcc/">http://www.cs.princeton.edu/software/lcc/</a>),
-    asdlGen 1.2 (<a href="http://www.cs.princeton.edu/zephyr/ASDL/">http://www.cs.princeton.edu/zephyr/ASDL/</a>),
+    asdlGen 1.2 (<a href="http://sourceforge.net/projects/asdl/">http://sourceforge.net/projects/asdl/</a>),
     and the CII library (<a href="http://www.cs.princeton.edu/software/cii/">http://www.cs.princeton.edu/software/cii/</a>).</li>
   <li>Create a file, <code>custom.mk</code>, that redefines the definitions at the top of the
     makefile to suit your local configuration. Make sure <code>BUILDDIR</code> points to the
     lcc 4.1 build directory (or a copy of it) and <code>ASDL_HOME</code> points to the root of
     the asdlGen installation.</li>
-  <li>Edit <a href="etc/solaris.c"><code>etc/solaris.c</code></a> or <a href="etc/linux.c"><code>etc/linux.c</code></a>
+  <li>Edit <a href="etc/solaris.c"><code>etc/solaris.c</code></a>
+    or <a href="etc/linux.c"><code>etc/linux.c</code></a>
     (or a copy) to suit your local configuration, and set <code>HOSTNAME</code> to the name of
     the appropriate file in <code>custom.mk</code>. These files are variants of the driver
     back ends included in the lcc 4.1 distribution. They support the -Wo-g4 option, which
@@ -115,8 +117,10 @@ apply to Windows NT 4.0. Under NT, you'll need a UNIX-style shell and Visual C++
       <pre>1% make CUSTOM=linux.mk</pre>
     </blockquote>
     <p>Depending on the values of file timestamps, you might have to touch <a
-    href="etc/solaris.c"><code>etc/solaris.c</code></a>, <a href="etc/linux.c"><code>etc/linux.c</code></a>,
-    or <a href="src/inits.c"><code>src/inits.c</code></a>, or remove the corresponding object
+    href="etc/solaris.c"><code>etc/solaris.c</code></a>,
+    <a href="etc/linux.c"><code>etc/linux.c</code></a>,
+    or <a href="src/inits.c"><code>src/inits.c</code></a>,
+    or remove the corresponding object
     files, to force rebuilding of lcc or rcc. <strong>IMPORTANT</strong>: Use the same C
     compiler you used to build lcc.</p>
   </li>
@@ -135,8 +139,8 @@ fetching module [1571580302] inhaling lookup.c[1571580302]
 fetching module [1571580299] inhaling wf.c[1571580299]
 cdb&gt;</pre>
     </blockquote>
-    <p>The documentation in &quot;A Machine-Independent Debugger&quot; applies; the
-    &quot;h&quot; command summarizes the commands.</p>
+    <p>The documentation in &lsquo;A Machine-Independent Debugger&rsquo; applies; the
+    &lsquo;h&rsquo; command summarizes the commands.</p>
   </li>
   <li>Test the two-process version of cdb. Build the sample program with<blockquote>
       <pre>1% make CUSTOM=custom.mk test</pre>
@@ -161,7 +165,7 @@ cdb&gt;</pre>
     </blockquote>
     <p>When you exit the client, cdb waits for another connection.</p>
   </li>
-  <li>The command &quot;<code>make CUSTOM=custom.mk clean</code>&quot; cleans up.</li>
+  <li>The command <code>make CUSTOM=custom.mk clean</code>; cleans up.</li>
   <li>(Optional) Add a link to cdb from <code>/usr/local/bin</code>, e.g.,<blockquote>
       <pre>1% ln -s ${BUILDDIR}/cdb /usr/local/bin/cdb</pre>
     </blockquote>
@@ -170,7 +174,7 @@ cdb&gt;</pre>
 
 <h2>Bugs and Suggestions</h2>
 
-<p>Send me email. I can't promise
+<p>Send me email. I can&rsquo;t promise
 timely responses or patches, but I intend to keep cdb in sync with lcc. </p>
 
 <hr>
