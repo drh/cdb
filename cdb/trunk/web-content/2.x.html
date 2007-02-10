@@ -15,10 +15,10 @@
 		<h1>cdb 2.x</h1>
 		<h4><strong>David R. Hanson, Google</strong></h4>
 		<h2>Introduction</h2>
-		<p>cdb is a machine-independent debugger for C programs compiled by <a href="http://www.cs.princeton.edu/software/lcc/">lcc</a> 4.x, a retargetable compiler for ISO Standard C. The latest version of cdb, <a href="ftp://ftp.cs.princeton.edu/pub/people/drh/cdb22.zip">version 2.2</a> (40KB ZIP file), differs in important ways from the implementation described in D. R. Hanson and M. Raghavachari, &quot;A Machine-Independent Debugger,&quot; <cite>Software&#151;Practice and Experience</cite> &nbsp;<strong>26</strong> (11), 1277-1299, Nov. 1996 (<a href="http://storage.webhop.net/documents/cdb.pdf"><font size="-1">PDF</font></a> 350KB).</p>
+		<p>cdb is a machine-independent debugger for C programs compiled by <a href="http://www.cs.princeton.edu/software/lcc/">lcc</a> 4.x, a retargetable compiler for ISO Standard C. The latest version of cdb, <a href="http://cdb.googlecode.com/files/cdb22.zip">version 2.2</a> (40KB ZIP file), differs in important ways from the implementation described in D. R. Hanson and M. Raghavachari, &quot;A Machine-Independent Debugger,&quot; <cite>Software&#151;Practice and Experience</cite> &nbsp;<strong>26</strong> (11), 1277-1299, Nov. 1996 (<a href="http://storage.webhop.net/documents/cdb.pdf"><font size="-1">PDF</font></a> 350KB).</p>
 		<p>The remainder of this page describes the differences in sections that parallel the SPE paper. This version of cdb runs on the x86 under Windows NT 4.01 and on the Sparc under Solaris.</p>
 		<h2>Design</h2>
-		<p>Most of the nub interface (defined in <a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/nub.h">nub.h</a>) remains unchanged; in the following listing and in those below, boldface identifies the changes.</p>
+		<p>Most of the nub interface (defined in <a href="http://cdb.googlecode.com/svn/tags/v2_2/src/nub.h">nub.h</a>) remains unchanged; in the following listing and in those below, boldface identifies the changes.</p>
 		<pre>typedef struct {
 	char file[32];
 	unsigned short x, y;
@@ -62,14 +62,14 @@ extern int _Nub_frame(int n, Nub_state_T *state);</pre>
 					<tr>
 						<td align="right">611</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/stab.c"><code>stab.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/stab.c"><code>stab.c</code></a></td>
 						<td></td>
 						<td>symbol table and breakpoint code emitter</td>
 					</tr>
 					<tr>
 						<td align="right">36</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/prelink.sh"><code>prelink.sh</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/prelink.sh"><code>prelink.sh</code></a></td>
 						<td></td>
 						<td>linking script</td>
 					</tr>
@@ -83,35 +83,35 @@ extern int _Nub_frame(int n, Nub_state_T *state);</pre>
 					<tr>
 						<td align="right">730</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/cdb.c"><code>cdb.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/cdb.c"><code>cdb.c</code></a></td>
 						<td></td>
 						<td>cdb user interface and command processor</td>
 					</tr>
 					<tr>
 						<td align="right">216</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/server.c"><code>server.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/server.c"><code>server.c</code></a></td>
 						<td></td>
 						<td>debugger side of the 2-process nub</td>
 					</tr>
 					<tr>
 						<td align="right">61</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/comm.c"><code>comm.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/comm.c"><code>comm.c</code></a></td>
 						<td></td>
 						<td>common communications code</td>
 					</tr>
 					<tr>
 						<td align="right">110</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/symtab.c"><code>symtab.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/symtab.c"><code>symtab.c</code></a></td>
 						<td></td>
 						<td>symbol and type management</td>
 					</tr>
 					<tr>
 						<td align="right">56</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/symstub.c"><code>symstub.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/symstub.c"><code>symstub.c</code></a></td>
 						<td></td>
 						<td>symtab.c stub for single-process nub</td>
 					</tr>
@@ -125,28 +125,28 @@ extern int _Nub_frame(int n, Nub_state_T *state);</pre>
 					<tr>
 						<td align="right">238</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/nub.c"><code>nub.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/nub.c"><code>nub.c</code></a></td>
 						<td></td>
 						<td>the nub</td>
 					</tr>
 					<tr>
 						<td align="right">203</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/client.c"><code>client.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/client.c"><code>client.c</code></a></td>
 						<td></td>
 						<td>target side of the 2-process nub</td>
 					</tr>
 					<tr>
 						<td align="right">61</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/comm.c"><code>comm.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/comm.c"><code>comm.c</code></a></td>
 						<td></td>
 						<td>common communication code (same as above)</td>
 					</tr>
 					<tr>
 						<td align="right">50</td>
 						<td></td>
-						<td><a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/src/clientstub.c"><code>clientstub.c</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src/clientstub.c"><code>clientstub.c</code></a></td>
 						<td></td>
 						<td>client.c stub for single-process nub</td>
 					</tr>
@@ -160,7 +160,7 @@ extern int _Nub_frame(int n, Nub_state_T *state);</pre>
 					<tr>
 						<td align="right"></td>
 						<td></td>
-						<td><a href="cgi-bin/ls.cgi?dir=../2.2/src&title=cdb 2.2 source code"><code>header files</code></a></td>
+						<td><a href="http://cdb.googlecode.com/svn/tags/v2_2/src"><code>header files</code></a></td>
 						<td></td>
 						<td></td>
 					</tr>
@@ -220,7 +220,7 @@ extern int _Nub_frame(int n, Nub_state_T *state);</pre>
         int ip;
 };</pre>
 		<p>The tail field has been eliminated, because, given a <code>sframe</code> pointer <code>fp</code>, then appropriate symbol-table tail is <code>fp-&gt;module-&gt;tails[fp-&gt;ip]</code>. The nub assigns this value to the <code>context</code> field of the <code>Nub_state_T</code> value passed to the breakpoint handler.</p>
-		<p>The stadow stack frame is initialized as in the original implementation, but the initialization is simpler; for example, upon entry to <code>lookup</code> in <a href="http://www.cs.princeton.edu/software/lcc/cdb/2.2/lookup.c">lookup.c</a>, lcc emits only</p>
+		<p>The stadow stack frame is initialized as in the original implementation, but the initialization is simpler; for example, upon entry to <code>lookup</code> in <a href="http://cdb.googlecode.com/svn/tags/v2_2/lookup.c">lookup.c</a>, lcc emits only</p>
 		<pre>struct sframe tos;
 tos.down = _Nub_tos;
 tos.name = &quot;lookup&quot;;
