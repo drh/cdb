@@ -2,7 +2,7 @@ This hierarchy holds the implementation of cdb, the debugger
 described in D. R. Hanson and M. Raghavachari, "A Machine-Independent
 Debugger," Software--Practice and Experience 26 (11), 1277-1299, Nov.
 1996; this paper is available at
-http://www.research.microsoft.com/~drh/pubs/cdb.pdf.
+http://storage.webhop.net/documents/cdb.pdf.
 
 For more information about cdb, visit
 http://www.cs.princeton.edu/software/lcc/cdb/.
@@ -162,9 +162,8 @@ When you exit the client, cdb waits for another connection.
 
 Bugs and Suggestions
 ~~~~~~~~~~~~~~~~~~~~
-Send email to drh@microsoft.com. I can't promise timely responses or
+Send email to drh at drhanson.net. I can't promise timely responses or
 patches, but I intend to keep cdb in sync with lcc.
 
-David R. Hanson / drh@microsoft.com
-http://www.research.microsoft.com/~drh/
+David R. Hanson / http://drh.home.dyndns.org/
 $Id$

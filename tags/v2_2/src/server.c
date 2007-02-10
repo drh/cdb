@@ -11,7 +11,7 @@
 #include "mem.h"
 #include "seq.h"
 
-static char rcsid[] = "$Id: server.c,v 1.7 1997/07/02 20:39:21 drh Exp $";
+static char rcsid[] = "$Id$";
 
 static SOCKET in, out;
 

@@ -13,7 +13,7 @@ static int WSAGetLastError(void) {
 }
 #endif
 
-static char rcsid[] = "$Id: client.c,v 1.5 1997/07/02 20:38:57 drh Exp $";
+static char rcsid[] = "$Id$";
 
 static SOCKET in, out;
 

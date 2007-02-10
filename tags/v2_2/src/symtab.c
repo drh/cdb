@@ -6,7 +6,7 @@
 #include "symtab.h"
 #include "nub.h"
 
-static char rcsid[] = "$Id: symtab.c,v 1.9 1997/07/02 20:36:59 drh Exp $";
+static char rcsid[] = "$Id$";
 
 enum { SYM=0 };
 static struct mod {

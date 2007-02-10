@@ -1,7 +1,7 @@
 #ifndef GLUE_INCLUDED
 #define GLUE_INCLUDED
 
-/* $Id: glue.h,v 1.10 1997/06/30 21:42:10 drh Exp $ */
+/* $Id$ */
 
 struct module {
 	union scoordinate *coordinates;

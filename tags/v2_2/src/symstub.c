@@ -4,7 +4,7 @@
 #include "mem.h"
 #include "symtab.h"
 
-static char rcsid[] = "$Id: symstub.c,v 1.8 1997/06/27 00:59:24 drh Exp $";
+static char rcsid[] = "$Id$";
 
 static struct module *dummy[1];
 static struct module **modules = dummy;

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "nub.h"
 
-static char rcsid[] = "$Id: clientstub.c,v 1.5 1997/06/30 21:42:09 drh Exp $";
+static char rcsid[] = "$Id$";
 
 static void print(int i, const Nub_coord_T *src, void *cl) {
 	static Nub_coord_T prev;

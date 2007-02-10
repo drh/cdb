@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "comm.h"
 
-static char rcsid[] = "$Id: comm.c,v 1.3 1997/07/02 20:39:02 drh Exp $";
+static char rcsid[] = "$Id$";
 
 #ifdef unix
 extern int read(int, void *, int);

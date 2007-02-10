@@ -2,7 +2,7 @@
 #define NUB_INCLUDED
 #include "glue.h"
 
-/* $Id: nub.h,v 1.6 1997/06/30 21:42:11 drh Exp $ */
+/* $Id$ */
 
 typedef struct {
 	char file[32];

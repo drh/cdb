@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "nub.h"
 
-static char rcsid[] = "$Id: nub.c,v 1.9 1997/07/02 20:41:46 drh Exp $";
+static char rcsid[] = "$Id$";
 
 struct sframe *_Nub_tos;
 
