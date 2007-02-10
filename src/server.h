@@ -2,7 +2,7 @@
 #define SERVER_INCLUDED
 #include "nub.h"
 
-/* $Id: server.h,v 1.3 1997/06/26 01:10:31 drh Exp $ */
+/* $Id$ */
 
 #define messagecodes \
 	xx(NUB_CONTINUE) \

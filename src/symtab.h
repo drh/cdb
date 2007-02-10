@@ -2,7 +2,7 @@
 #define SYMTAB_INCLUDED
 #include "glue.h"
 
-/* $Id: symtab.h,v 1.7 1997/06/27 00:59:25 drh Exp $ */
+/* $Id$ */
 
 extern void _Sym_init(struct module *mods[]);
 extern const struct ssymbol *_Sym_symbol(const void *sym);

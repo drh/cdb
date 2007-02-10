@@ -12,7 +12,7 @@
 #include "server.h"
 #include "symtab.h"
 
-static char rcsid[] = "$Id: cdb.c,v 1.9 1997/07/02 20:39:46 drh Exp $";
+static char rcsid[] = "$Id$";
 
 struct cdb_src {
 	int n;

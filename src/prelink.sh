@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Id: prelink.sh,v 1.3 1997/07/02 20:42:16 drh Exp $
+# $Id$
 
 # prelink -o file files...
 # generates list of module pointers in the given object files
