@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 <title>cdb 3.1</title>
-<link HREF="http://drh.home.dyndns.org/" REV="made" TITLE="David R. Hanson">
+<link HREF="https://drh.github.io" REV="made" TITLE="David R. Hanson">
 </head>
 
 <body>
@@ -14,18 +14,13 @@
 D. R. Hanson,
 &lsquo;A Machine-Independent Debugger&mdash;Revisited&rsquo;,
 <cite>Software&mdash;Practice and Experience</cite> <strong>29</strong> (10), 849-862, Aug. 1999; 
-this paper is available at
-<a href="http://storage.webhop.net/documents/cdb3.pdf">http://storage.webhop.net/documents/cdb3.pdf</a>.</p>
+<a href="docs/cdb3-spe.pdf">PDF</a>.</p>
 
 <p>The initial version of cdb is described in
 D. R. Hanson and M. Raghavachari,
 &lsquo;A Machine-Independent Debugger&rsquo;,
-<cite>Software&mdash;Practice and Experience</cite> <strong>26</strong> (11), 1277-1299, 11/96,
-which is available at
-<a href="http://storage.webhop.net/documents/cdb.pdf">http://storage.webhop.net/documents/cdb.pdf</a>.</p>
-
-<p>For more information about cdb, visit <a
-href="http://www.cs.princeton.edu/software/lcc/cdb/">http://www.cs.princeton.edu/software/lcc/cdb/</a>.</p>
+<cite>Software&mdash;Practice and Experience</cite> <strong>26</strong> (11), 1277-1299, Nov. 1996;
+<a href="docs/cdb.pdf">PDF</a>.</p>
 
 <h2>Contents</h2>
 
@@ -44,20 +39,19 @@ href="http://www.cs.princeton.edu/software/lcc/cdb/">http://www.cs.princeton.edu
   <dt><code>startup/{*.o,*.obj}</code></dt>
   <dd>platform-specific startup code modified to start the nub. Only startup/solaris.o,
     startup/linux.o, and startup/win32.obj have been tested.</dd>
+  <dt><a href="docs">docs</a>/*.pdf</a></dt>
+  <dd>PDFs for the papers cited above.</dd>
 </dl>
 
 <h2>Differences</h2>
 
-<p>&lsquo;A Machine-Independent Debugger&rsquo; describes the initial version of cdb. <a
-href="http://www.cs.princeton.edu/software/lcc/cdb/2.x.html">http://www.cs.princeton.edu/software/lcc/cdb/2.x.html</a>
-describes the differences between the initial version and version 2.2. The list below
+<p>&lsquo;A Machine-Independent Debugger&rsquo; describes the initial version of cdb. The list below
 summarizes the differences between version 3.1 and cdb 2.2. For all the details, see
 &lsquo;A Machine-Independent Debugger&mdash;Revisited&rsquo;.</p>
 
-<p>This version works only with lcc 4.1, and it requires the ASDL generator, asdlGen (<a
-href="http://sourceforge.net/projects/asdl/">http://sourceforge.net/projects/asdl/</a>),
-and the C Interfaces and Implementations (CII) library (<a
-href="http://www.cs.princeton.edu/software/cii/">http://www.cs.princeton.edu/software/cii/</a>).</p>
+<p>This version works only with <a href="https://github.com/drh/lcc">lcc</a> 4.1, and it requires the ASDL generator,
+<a href="http://sourceforge.net/projects/asdl/">asdlGen</a>),
+and the <a href="https://github.com/drh/cii"></a>C Interfaces and Implementations (CII) library.</p>
 
 <p>In the two-process version, cdb is the server and the target (the program being
 debugged) is the client. <a href="src/server.c"><code>src/server.c</code></a> is the
@@ -90,9 +84,7 @@ apply to Windows NT 4.0. Under NT, you'll need a UNIX-style shell and Visual C++
 6.0. 
 
 <ol>
-  <li>Install lcc 4.1 (<a href="http://www.cs.princeton.edu/software/lcc/">http://www.cs.princeton.edu/software/lcc/</a>),
-    asdlGen 1.2 (<a href="http://sourceforge.net/projects/asdl/">http://sourceforge.net/projects/asdl/</a>),
-    and the CII library (<a href="http://www.cs.princeton.edu/software/cii/">http://www.cs.princeton.edu/software/cii/</a>).</li>
+  <li>Install lcc 4.1, asdlGen 1.2, and the CII library.</li>
   <li>Create a file, <code>custom.mk</code>, that redefines the definitions at the top of the
     makefile to suit your local configuration. Make sure <code>BUILDDIR</code> points to the
     lcc 4.1 build directory (or a copy of it) and <code>ASDL_HOME</code> points to the root of
@@ -180,8 +172,7 @@ timely responses or patches, but I intend to keep cdb in sync with lcc. </p>
 <hr>
 
 <address>
-  <a href="http://drh.home.dyndns.org/">David R. Hanson</a><br>
-  $Id$ 
+  <a href="https://drh.github.io">David R. Hanson</a>
 </address>
 </body>
 </html>
